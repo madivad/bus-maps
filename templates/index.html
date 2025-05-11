@@ -50,6 +50,42 @@
         </div>
     </div>
 
+    <!-- NEW: Options Modal -->
+    <div id="options-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-options-modal">×</span>
+            <h2>Map Options</h2>
+            <div id="options-content-area">
+                <!-- Options will be populated here -->
+                <div class="option-item">
+                    <label for="update-frequency">Update Frequency:</label>
+                    <select id="update-frequency">
+                        <option value="10000">10 seconds</option>
+                        <option value="20000" selected>20 seconds</option>
+                        <option value="30000">30 seconds</option>
+                        <option value="60000">1 minute</option>
+                    </select>
+                </div>
+                <hr>
+                <div class="option-item">
+                    <label>
+                        <input type="checkbox" id="toggle-live-tracking" checked>
+                        Enable Live Bus Tracking
+                    </label>
+                </div>
+                <hr>
+                <div class="option-item">
+                    <label>
+                        <input type="checkbox" id="toggle-route-paths" checked>
+                        Show Route Paths
+                    </label>
+                </div>
+            </div>
+            <button id="save-options">Apply & Save Options</button>
+        </div>
+    </div>
+
+
     <!-- Load Google Maps API -->
     <script src="./static/map_logic.js"></script>
     <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&libraries=marker&v=beta&loading=async"></script>

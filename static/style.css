@@ -143,6 +143,25 @@ html, body {
     margin: 15px 0;
 }
 
+/* --- NEW: Options Modal Specifics (if any) --- */
+#options-content-area .option-item {
+    margin-bottom: 15px;
+    display: flex; /* For aligning label and select/checkbox */
+    align-items: center;
+}
+#options-content-area .option-item label:first-child { /* For labels NOT wrapping an input */
+    margin-right: 10px;
+    flex-shrink: 0; /* Prevent label from shrinking */
+}
+#options-content-area .option-item select {
+    padding: 5px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+}
+#options-content-area hr {
+    margin: 10px 0 15px 0;
+}
+
 /* Responsive adjustments (optional example) */
 @media screen and (max-width: 600px) {
     .modal-content {
