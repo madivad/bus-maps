@@ -1,8 +1,5 @@
 /* Basic styling for the map container */
 #map {
-    /* height: 95vh; Make map take most of the viewport height */
-    /* width: 100%; */
-    /* border: 3px solid red; */ /* Commented out for cleaner look */
     position: absolute; /* Take full space below menu */
     top: 45px; /* Height of the menu-bar */
     bottom: 0;
@@ -102,6 +99,7 @@ html, body {
     display: block; /* Each checkbox on a new line */
     margin-bottom: 8px;
     cursor: pointer;
+    font-size: 0.9em; /* ADDED: Reduced font size for labels */
 }
 .modal-list input[type="checkbox"] {
     margin-right: 8px;
