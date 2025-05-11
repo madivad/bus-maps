@@ -113,6 +113,16 @@ html, body {
     margin-bottom: 10px;
 }
 
+.route-color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%; /* Makes it a circle */
+    margin-right: 8px; /* Space between dot and checkbox */
+    border: 1px solid #777; /* Optional: slight border for light colors */
+    flex-shrink: 0; /* Prevent dot from shrinking if label text is long */
+}
+
 .modal-list.scrollable-list {
     max-height: 250px; /* Adjust as needed */
     overflow-y: auto;

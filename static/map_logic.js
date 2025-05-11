@@ -8,9 +8,12 @@ const animationDuration = 1500;
 let animationFrameId = null;
 let dataFetchIntervalId = null; // To control the main data fetching interval
 
-// --- NEW: State variables for selections ---
-let selectedOperatorIds = new Set(); // Stores IDs like "2606"
-let selectedRealtimeRouteIds = new Set(); // Stores IDs like "2606_50"
+let selectedOperatorIds = new Set();
+let selectedRealtimeRouteIds = new Set();
+
+// --- NEW: Route Colors (moved to global scope) ---
+const ROUTE_COLORS = ['#FF5733', '#3375FF', '#33FF57', '#FFC300', '#C70039', '#900C3F', '#581845', '#FF8C00', '#00CED1', '#DA70D6'];
+let assignedRouteColors = {}; // To store realtime_id -> color mapping for consistency
 
 // --- NEW: DOM Elements ---
 let btnOperators, btnRoutes; // btnOptions;
@@ -221,7 +224,47 @@ async function openRoutesModal() {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         allFetchedRoutesForCurrentOperators = await response.json();
 
-        populateRoutesModalLists(); // Use the cached/fetched routes
+        // --- MODIFICATION: Assign colors consistently ---
+        // Clear previous assignments if operators changed significantly,
+        // or just ensure all current routes have a color.
+        // For simplicity, we'll re-assign here if needed, or use existing.
+        let colorIndex = 0;
+        const tempAssignedColors = {}; // Use a temporary map for this session of openRoutesModal
+                                     // to ensure consistent color picking within this list rendering
+
+        allFetchedRoutesForCurrentOperators.forEach(route => {
+            if (!assignedRouteColors[route.realtime_id]) {
+                // If a route that was previously colored is no longer in the fetched list,
+                // its color might be "lost" for future appearances unless we manage assignedRouteColors more globally.
+                // For now, this assigns a color if it doesn't have one.
+                // A more robust approach might involve pre-assigning colors to all possible routes
+                // or having a stable sorting before assigning colors if the order of allFetchedRoutesForCurrentOperators can change.
+                // However, since fetchAndDrawRouteShapes also picks colors, this might lead to mismatches
+                // if the set of routes with shapes differs from allFetchedRoutesForCurrentOperators.
+
+                // Let's try to make polyline color consistent with modal color.
+                // The challenge is `fetchAndDrawRouteShapes` only processes routes *with shapes*.
+                // The modal lists all routes.
+
+                // Simplest consistent approach for the modal:
+                // Use a hash of the route ID to pick a color. This is deterministic.
+                let hash = 0;
+                for (let i = 0; i < route.realtime_id.length; i++) {
+                    hash = route.realtime_id.charCodeAt(i) + ((hash << 5) - hash);
+                    hash = hash & hash; // Convert to 32bit integer
+                }
+                const colorForRoute = ROUTE_COLORS[Math.abs(hash) % ROUTE_COLORS.length];
+                tempAssignedColors[route.realtime_id] = colorForRoute;
+            } else {
+                tempAssignedColors[route.realtime_id] = assignedRouteColors[route.realtime_id];
+            }
+        });
+        // Update the global assignedRouteColors with the ones used in this modal rendering.
+        // This helps if a route is later drawn on the map.
+        Object.assign(assignedRouteColors, tempAssignedColors);
+
+
+        populateRoutesModalLists();
         routesModal.style.display = "block";
 
     } catch (error) {
@@ -252,10 +295,8 @@ function populateRoutesModalLists() {
         if (!isNaN(aNum) && !isNaN(bNum)) {
             if (aNum !== bNum) return aNum - bNum;
         }
-        // Fallback to full string sort if not numeric or primary numbers are equal
         return a.short_name.localeCompare(b.short_name);
     });
-
 
     allFetchedRoutesForCurrentOperators.forEach(route => {
         // Filter by search term
@@ -283,8 +324,15 @@ function populateRoutesModalLists() {
             populateRoutesModalLists(); 
         });
 
+        // --- NEW: Create and add color dot ---
+        const colorDot = document.createElement('span');
+        colorDot.className = 'route-color-dot';
+        // Use the color assigned in openRoutesModal or fallback if somehow missed.
+        colorDot.style.backgroundColor = assignedRouteColors[route.realtime_id] || ROUTE_COLORS[0]; // Fallback to first color
+        
+        label.appendChild(colorDot); // Add dot before checkbox
         label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(` ${routeDisplayName} (Agency: ${route.agency_id})`));
+        label.appendChild(document.createTextNode(` ${routeDisplayName} (Agency: ${route.agency_id})`)); // Added space before text
 
         if (checkbox.checked) {
             selectedRoutesListDiv.appendChild(label);
@@ -394,7 +442,7 @@ function clearAllMapLayers() {
 async function fetchAndDrawRouteShapes(routesParam) {
     if (!routesParam) {
         console.log("fetchAndDrawRouteShapes: No routes specified, skipping.");
-        clearPolylines(); // Ensure polylines are cleared if no routes
+        // clearPolylines(); // Ensure polylines are cleared if no routes
         return;
     }
     console.log(`Fetching route shapes for: ${routesParam}`);
@@ -415,16 +463,31 @@ async function fetchAndDrawRouteShapes(routesParam) {
         console.log(`Received shape data for ${Object.keys(shapesData).length} routes.`);
         // No need for clearPolylines() here, as updateMapData handles overall clearing
 
-        const routeColors = ['#FF5733', '#3375FF', '#33FF57', '#FFC300', '#C70039', '#900C3F', '#581845'];
-        let colorIndex = 0;
+        // const routeColors = ['#FF5733', '#3375FF', '#33FF57', '#FFC300', '#C70039', '#900C3F', '#581845'];
+        // let colorIndex = 0;
 
         for (const routeId in shapesData) { // routeId here is realtime_route_id
             if (!shapesData.hasOwnProperty(routeId)) continue;
             const shapes = shapesData[routeId]; // shapes is an array of paths (arrays of points)
             if (!Array.isArray(shapes)) continue;
 
-            const color = routeColors[colorIndex % routeColors.length];
-            if (!routePolylines[routeId]) { // Check if already initialized for this routeId
+            // --- MODIFICATION: Use assigned color or assign if new ---
+            let colorForPolyline = assignedRouteColors[routeId];
+            if (!colorForPolyline) {
+                // This case should be rare if openRoutesModal assigned it.
+                // Fallback for routes that might get shapes but weren't in modal list
+                // (e.g. if selection changes rapidly or from direct URL params in future)
+                let hash = 0;
+                for (let i = 0; i < routeId.length; i++) {
+                    hash = routeId.charCodeAt(i) + ((hash << 5) - hash);
+                    hash = hash & hash;
+                }
+                colorForPolyline = ROUTE_COLORS[Math.abs(hash) % ROUTE_COLORS.length];
+                assignedRouteColors[routeId] = colorForPolyline; // Store it
+                console.warn(`Assigned fallback color for polyline ${routeId} as it wasn't pre-assigned.`);
+            }
+            
+            if (!routePolylines[routeId]) {
                 routePolylines[routeId] = [];
             }
 
@@ -435,14 +498,16 @@ async function fetchAndDrawRouteShapes(routesParam) {
 
                 try {
                     const polyline = new google.maps.Polyline({
-                        path: validPathPoints, geodesic: true, strokeColor: color,
-                        strokeOpacity: 0.65, strokeWeight: 5, zIndex: 1
+                        path: validPathPoints, geodesic: true,
+                        strokeColor: colorForPolyline, // USE DETERMINISTIC COLOR
+                        strokeOpacity: 0.45, // Transparency change from previous step
+                        strokeWeight: 5, zIndex: 1
                     });
                     polyline.setMap(map);
-                    routePolylines[routeId].push(polyline); // Add to the list for this routeId
+                    routePolylines[routeId].push(polyline);
                 } catch (e) { console.error(`Error creating polyline for route ${routeId}, shape ${index + 1}:`, e); }
             });
-            colorIndex++;
+            // colorIndex++; // No longer needed here
         }
          console.log("Finished drawing route polylines for current selection.");
     } catch (error) { console.error("Error fetching or drawing route shapes:", error); }
@@ -485,6 +550,25 @@ async function fetchAndUpdateMarkers(routesParam) {
             const speedDisplay = bus.speed || 'N/A';
             const timeDisplay = formatTimestamp(bus.raw_timestamp);
 
+            let arrowStrokeColor = 'red'; // Default color if route color not found
+            if (assignedRouteColors[routeId]) {
+                arrowStrokeColor = assignedRouteColors[routeId];
+            } else {
+                // Fallback: If color not in assignedRouteColors (e.g. direct load, or new route not yet in modal)
+                // assign one now based on hash, similar to fetchAndDrawRouteShapes.
+                // This ensures markers for newly appearing routes also try to get a consistent color.
+                if (routeId !== 'N/A') {
+                    let hash = 0;
+                    for (let i = 0; i < routeId.length; i++) {
+                        hash = routeId.charCodeAt(i) + ((hash << 5) - hash);
+                        hash = hash & hash; // Convert to 32bit integer
+                    }
+                    arrowStrokeColor = ROUTE_COLORS[Math.abs(hash) % ROUTE_COLORS.length];
+                    assignedRouteColors[routeId] = arrowStrokeColor; // Store for future use
+                    console.warn(`Assigned fallback color for marker ${vehicleId} on route ${routeId}`);
+                }
+            }
+
             const currentInfoContent = `
                 <div style="font-family: sans-serif; font-size: 12px; line-height: 1.4;">
                     <strong>Route:</strong> ${routeId}<br>
@@ -504,11 +588,11 @@ async function fetchAndUpdateMarkers(routesParam) {
                 <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 ${iconSize} ${iconSize}" xmlns="http://www.w3.org/2000/svg">
                   <g transform="rotate(${bearing}, ${center}, ${center})">
                     <circle cx="${center}" cy="${center}" r="${circleRadius}" fill="black" stroke="white" stroke-width="1.5"/>
-                    <polygon points="${center}, ${center - circleRadius + 1 - arrowOffset} ${center - pointerWidth / 2}, ${center - circleRadius + pointerHeight - arrowOffset} ${center + pointerWidth / 2}, ${center - circleRadius + pointerHeight + 1 - arrowOffset}" fill="black" stroke="red" stroke-width="1.5" />
+                    <polygon points="${center}, ${center - circleRadius + 1 - arrowOffset} ${center - pointerWidth / 2}, ${center - circleRadius + pointerHeight - arrowOffset} ${center + pointerWidth / 2}, ${center - circleRadius + pointerHeight + 1 - arrowOffset}" 
+                            fill="black" stroke="${arrowStrokeColor}" stroke-width="1.5" />
                     <text x="${center}" y="${center + 1}" fill="white" font-size="${fontSize}" font-weight="bold" font-family="Arial, sans-serif" text-anchor="middle" dominant-baseline="middle" transform="rotate(${-bearing}, ${center}, ${center})">${routeShortName}</text>
                   </g>
                 </svg>`;
-
 
             if (busMarkerObjects[vehicleId]) {
                 // Marker EXISTS
@@ -525,7 +609,6 @@ async function fetchAndUpdateMarkers(routesParam) {
                     markerElement.style.cursor = 'pointer';
                     markerData.gmapMarker.content = markerElement;
                 }
-
 
                 const currentPosition = markerData.gmapMarker.position;
                 if (currentPosition && (Math.abs((currentPosition?.lat || 0) - newPosition.lat) > 0.000001 || Math.abs((currentPosition?.lng || 0) - newPosition.lng) > 0.000001)) {
