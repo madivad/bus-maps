@@ -11,5 +11,5 @@ wheels/
 .venv
 
 # Misc files
-stop_times.txt
-shapes.txt
+gtfs_static/stop_times.txt
+gtfs_static/shapes.txt
