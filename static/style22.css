@@ -1,0 +1,94 @@
+/* --- START OF FILE style.css --- */
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif; /* Add a default font */
+    overflow: hidden; /* Prevent scrollbars on html/body if map/sidebar overflow */
+}
+
+h3 {
+    text-align: center;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    font-size: 1.1em;
+    color: #333;
+}
+
+#map {
+    /* Adjust map size to make space for the sidebar */
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 300px; /* Make space for the sidebar */
+    border: 1px solid #ccc; /* Smaller border */
+    z-index: 0; /* Ensure map is behind sidebar */
+}
+
+#route-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0; /* Extend to bottom */
+    width: 300px; /* Fixed width for sidebar */
+    background-color: #f9f9f9; /* Light background */
+    padding: 10px;
+    border-right: 1px solid #ccc;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+    overflow-y: auto; /* Add scroll if content overflows */
+    z-index: 5; /* Ensure sidebar is above map */
+    box-sizing: border-box; /* Include padding and border in width */
+}
+
+#route-sidebar h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+#route-list {
+    margin-bottom: 10px;
+}
+
+#route-list label {
+    display: block; /* Each route on a new line */
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    cursor: pointer;
+    padding: 2px 0; /* Add a little vertical padding */
+}
+
+#route-list label input {
+    margin-right: 5px;
+    vertical-align: middle; /* Align checkbox nicely */
+}
+
+/* Optional: Hover effect on route labels */
+#route-list label:hover {
+    background-color: #e9e9e9;
+}
+
+/* Style for the route color dot (optional, requires adding a span in JS) */
+/* Example:
+#route-list label .color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+*/
+
+#route-sidebar hr {
+    margin: 10px 0;
+    border: 0;
+    border-top: 1px solid #eee;
+}
+
+#route-sidebar > div label {
+    font-size: 0.9em;
+    cursor: pointer;
+}

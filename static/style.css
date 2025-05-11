@@ -1,0 +1,38 @@
+/* Basic styling for the map container */
+#map {
+    height: 95vh; /* Make map take most of the viewport height */
+    width: 100%;
+    border: 3px solid red;
+}
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif; /* Add a default font */
+}
+
+/* Basic h3 styling (optional) */
+h3 {
+    text-align: center;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    font-size: 1.1em;
+    color: #333;
+}
+
+/* You can add styles for the future sidebar here later */
+/*
+#route-sidebar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 250px;
+    max-height: 80vh;
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    overflow-y: auto;
+    z-index: 5;
+}
+*/

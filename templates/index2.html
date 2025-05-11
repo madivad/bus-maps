@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Realtime Bus Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h3>Realtime Bus Positions (Routes: {{ tracked_routes_display }})</h3>
+    <div id="map"></div>
+
+    <!-- Load Google Maps API -->
+    <!-- Note the use of {{ google_maps_api_key }} - Flask injects the key here -->
+    <!-- Added &libraries=marker&v=beta for Advanced Markers -->
+    <!-- <script src="./static/map_logic.js"></script> -->
+    <script src="./static/map_logic.js"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&libraries=marker&v=beta&loading=async"></script>
+  
+    <!-- Load Google Maps API -->
+    <!-- Note the use of {{ google_maps_api_key }} - Flask injects the key here -->
+    <!-- Added &libraries=marker&v=beta for Advanced Markers -->
+    <!-- <script defer src="{{ url_for('static', filename='map_logic.js') }}"></script> -->
+
+
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!-- --- START OF FILE index2.html --- -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Realtime Bus Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style22.css') }}">
+</head>
+<body>
+    <h3>Realtime Bus Positions</h3>
+
+    <div id="route-sidebar">
+        <h4>Routes</h4>
+        <div id="route-list">
+            <!-- Checkboxes will be loaded here by JavaScript -->
+            Loading routes...
+        </div>
+        <hr>
+        <div>
+            <label for="live-update-checkbox">
+                <input type="checkbox" id="live-update-checkbox" checked> Live Update
+            </label>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Store initial selected routes from Flask 
+    <script>
+        const initialSelectedRoutes = {{ initial_selected_routes | tojson }};
+    </script> -->
+
+    <!-- Load your map logic script -->
+    <script src="{{ url_for('static', filename='map_logic22.js') }}"></script>
+
+    <!-- Load Google Maps API -->
+    <!-- Note the use of {{ google_maps_api_key }} - Flask injects the key here -->
+    <!-- Added &libraries=marker&v=beta for Advanced Markers -->
+    <!-- Removed the duplicate script tag -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&libraries=marker&v=beta&loading=async"></script>
+
+</body>
+</html>
