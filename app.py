@@ -7,7 +7,7 @@ import traceback # Import traceback for better error printing
 
 
 # Import the function from your bus script
-from bus2 import fetch_and_filter_bus_positions
+from buses import fetch_and_filter_bus_positions
 
 # Load environment variables from .env file
 load_dotenv()
@@ -273,34 +273,13 @@ def index():
         sorted_routes = sorted(route_short_names)
 
     routes_display_string = ", ".join(sorted_routes)
-    # --- END ADDED PART ---
-
-
-
-
-
-
-
-
-
-
-
 
     # Pass the Google Maps API key AND the routes string to the template
     return render_template(
-        'index2.html',
+        'index.html',
         google_maps_api_key=GOOGLE_MAPS_API_KEY,
         tracked_routes_display=routes_display_string # Pass the processed string
     )
-
-
-
-
-
-
-
-
-
     
 @app.route('/api/bus_data')
 def get_bus_data():
@@ -362,7 +341,6 @@ def get_bus_data():
         traceback.print_exc()
         return jsonify({"error": "An unexpected server error occurred processing bus data"}), 500
 
-# --- API ENDPOINT FOR SHAPES ---
 @app.route('/api/route_shapes')
 def get_route_shapes():
     """API endpoint to return the pre-loaded route shape data."""
@@ -373,7 +351,6 @@ def get_route_shapes():
         print("API Warning: Route shapes requested, but ROUTE_SHAPES_DATA is empty or loading failed.")
         return jsonify({}) # Return empty object, let frontend handle it gracefully
     return jsonify(ROUTE_SHAPES_DATA)
-# --- END API ENDPOINT FOR SHAPES ---
 
 # --- Run the App ---
 if __name__ == '__main__':
