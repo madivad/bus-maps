@@ -15,7 +15,7 @@ const ROUTE_COLORS = ['#FF5733', '#3375FF', '#33FF57', '#FFC300', '#C70039', '#9
 let assignedRouteColors = {};
 
 let currentMapOptions = {
-    updateIntervalMs: 20000,
+    updateIntervalMs: 10000,
     liveTrackingEnabled: true,
     showRoutePathsEnabled: true
 };
