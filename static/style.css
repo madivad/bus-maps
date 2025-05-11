@@ -1,38 +1,147 @@
 /* Basic styling for the map container */
 #map {
-    height: 95vh; /* Make map take most of the viewport height */
-    width: 100%;
-    border: 3px solid red;
+    /* height: 95vh; Make map take most of the viewport height */
+    /* width: 100%; */
+    /* border: 3px solid red; */ /* Commented out for cleaner look */
+    position: absolute; /* Take full space below menu */
+    top: 45px; /* Height of the menu-bar */
+    bottom: 0;
+    left: 0;
+    right: 0;
 }
 html, body {
     height: 100%;
     margin: 0;
     padding: 0;
     font-family: sans-serif; /* Add a default font */
+    overflow: hidden; /* Prevent scrollbars on body due to absolute positioning */
 }
 
-/* Basic h3 styling (optional) */
-h3 {
-    text-align: center;
-    margin-top: 5px;
-    margin-bottom: 5px;
-    font-size: 1.1em;
+/* --- Menu Bar --- */
+#menu-bar {
+    position: fixed; /* Keep it at the top */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 40px; /* Adjust as needed */
+    background-color: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+    padding: 5px 10px;
+    box-sizing: border-box;
+    z-index: 1000; /* Above map and modals (initially) */
+    display: flex;
+    align-items: center;
+}
+
+#menu-bar button {
+    margin-right: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+#menu-bar button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+#map-title { /* Replaces old h3 */
+    margin: 0;
+    margin-left: auto; /* Pushes title to the right */
+    margin-right: 20px; /* Some spacing from edge */
+    font-size: 1.0em;
     color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 50%; /* Prevent title from taking too much space */
 }
 
-/* You can add styles for the future sidebar here later */
-/*
-#route-sidebar {
+
+/* --- Modal Styling --- */
+.modal {
+    display: none; /* Hidden by default, JS will toggle */
+    position: fixed; /* Stay in place */
+    z-index: 1001; /* Above menu bar */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Enable scroll if content is too long */
+    background-color: rgba(0,0,0,0.5); /* Black w/ opacity */
+    padding-top: 60px; /* Place modal below fixed header */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto; /* 5% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+    max-width: 500px; /* Max width */
+    border-radius: 8px;
+    position: relative;
+}
+
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
     position: absolute;
     top: 10px;
-    left: 10px;
-    width: 250px;
-    max-height: 80vh;
-    background-color: rgba(255, 255, 255, 0.9);
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    overflow-y: auto;
-    z-index: 5;
+    right: 15px;
 }
-*/
+
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.modal-list label {
+    display: block; /* Each checkbox on a new line */
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+.modal-list input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.modal-list.fixed-list {
+    max-height: 150px; /* Adjust as needed */
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.modal-list.scrollable-list {
+    max-height: 250px; /* Adjust as needed */
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 10px;
+}
+
+#routes-modal .modal-content {
+    max-width: 600px; /* Wider modal for routes */
+}
+
+#selected-routes-list-container h4,
+#routes-modal h4 {
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+#routes-modal hr {
+    margin: 15px 0;
+}
+
+/* Responsive adjustments (optional example) */
+@media screen and (max-width: 600px) {
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+    #map-title {
+        max-width: 30%; /* Smaller title on small screens */
+    }
+}

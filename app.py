@@ -1,7 +1,8 @@
+# app.py
 import os
 import csv
 from collections import defaultdict
-from flask import Flask, render_template, jsonify # type: ignore
+from flask import Flask, render_template, jsonify, request # Added request
 from dotenv import load_dotenv # type: ignore
 import traceback # Import traceback for better error printing
 
@@ -13,241 +14,250 @@ from buses import fetch_and_filter_bus_positions
 load_dotenv()
 
 # --- Configuration ---
-# Get API keys and URL from environment
 TFNSW_API_KEY = os.getenv("API_KEY")
-TFNSW_BUS_URL = os.getenv("BUS_URL")
+TFNSW_BUS_URL = "https://api.transport.nsw.gov.au/v1/gtfs/vehiclepos/buses" # BUS_URL = os.getenv("BUS_URL")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
-# Target routes (ensure these are the correct route_ids from TfNSW GTFS static data)
-TARGET_ROUTES = {"2606_50", "2606_54", "2606_55", "2606_60", "2606_70", "2606_53","2606_53/3", "2606_57", "2606_64", "2606_5364"}
-# TARGET_ROUTES = {"2606_55"}
-
 # --- Constants ---
-GTFS_STATIC_DIR = 'gtfs_static' # Folder where you extracted GTFS zip
+GTFS_STATIC_DIR = 'gtfs_static'
 
-# --- Global variable to store processed shapes ---
-# Structure: { "route_id": [[{lat: y, lng: x}, ...], [{lat: y, lng: x}, ...]], ... }
-ROUTE_SHAPES_DATA = defaultdict(list)
+# --- Helper to load agency data (can be cached simply) ---
+_agency_data_cache = None
+def get_agency_name_map():
+    global _agency_data_cache
+    if _agency_data_cache is None:
+        _agency_data_cache = {}
+        agency_file = os.path.join(GTFS_STATIC_DIR, 'agency.txt')
+        if os.path.exists(agency_file):
+            try:
+                with open(agency_file, 'r', encoding='utf-8-sig') as f_agency: # Renamed to avoid conflict
+                    reader = csv.DictReader(f_agency)
+                    for row in reader:
+                        _agency_data_cache[row['agency_id']] = row['agency_name']
+                print(f"Agency name map loaded with {len(_agency_data_cache)} entries.")
+            except Exception as e:
+                print(f"Error reading agency.txt: {e}")
+                traceback.print_exc()
+        else:
+            print(f"Warning: agency.txt not found at {agency_file}")
+    return _agency_data_cache
 
-def load_gtfs_shapes(target_realtime_routes):
+def load_gtfs_shapes(target_realtime_routes: set):
     """
-    Processes static GTFS data to extract shapes for target routes,
-    mapping via route_short_name.
-    Loads data into the global ROUTE_SHAPES_DATA dictionary keyed by REALTIME route ID.
-    Returns True on success or partial success, False on critical failure.
+    Processes static GTFS data to extract shapes for the given target_realtime_routes.
+    Returns a dictionary: { "realtime_route_id": [[{lat: y, lng: x}, ...]], ... }
+    or an empty dictionary if no shapes are found or errors occur.
     """
-    print("Loading GTFS static data (using route_short_name mapping)...")
+    if not target_realtime_routes:
+        print("load_gtfs_shapes: No target routes provided, returning empty shapes.")
+        return {}
+
+    print(f"Loading GTFS shapes for {len(target_realtime_routes)} target routes: {target_realtime_routes}")
+    # This function will read GTFS files. Consider performance implications for large datasets
+    # if called frequently without further caching of intermediate file reads.
+
+    # Initialize a local dictionary for this request's results
+    route_shapes_for_this_request = defaultdict(list)
+
     gtfs_files_exist = True
     shapes_file = os.path.join(GTFS_STATIC_DIR, 'shapes2606.txt')
     trips_file = os.path.join(GTFS_STATIC_DIR, 'trips2606.txt')
-    routes_file = os.path.join(GTFS_STATIC_DIR, 'routes2606.txt')
+    routes_file_path = os.path.join(GTFS_STATIC_DIR, 'routes2606.txt') # Renamed variable
 
     # --- Pre-computation: Map target short names to target realtime IDs ---
     target_short_names = set()
-    short_name_to_realtime_id = {} # Assumes one realtime ID per short name for simplicity
+    short_name_to_realtime_id = {}
+    agency_id_from_realtime_route = {} # Store agency_id part: "2606_50" -> "2606"
+
     for rt_id in target_realtime_routes:
         try:
-            # Assuming format like PREFIX_SHORTNAME or just SHORTNAME
-            short_name = rt_id.split('_')[-1] if '_' in rt_id else rt_id
-            target_short_names.add(short_name)
-            # Store the first realtime ID encountered for this short name
-            if short_name not in short_name_to_realtime_id:
-                short_name_to_realtime_id[short_name] = rt_id
+            parts = rt_id.split('_', 1) # Split only on the first underscore
+            if len(parts) == 2:
+                agency_id, short_name = parts
+                target_short_names.add(short_name)
+                agency_id_from_realtime_route[rt_id] = agency_id
+                # Store the first realtime ID encountered for this (agency_id, short_name) pair
+                # This assumes short_name is unique *within an agency_id* from the perspective of target_realtime_routes
+                if (agency_id, short_name) not in short_name_to_realtime_id:
+                     short_name_to_realtime_id[(agency_id, short_name)] = rt_id
+            else: # Handle cases like "55" if they are ever passed directly
+                short_name = rt_id
+                target_short_names.add(short_name)
+                # For short_name only, we can't determine agency_id here.
+                # This might need adjustment if such rt_id formats are common.
+                # For now, assume "AGENCY_SHORTNAME" format.
+                if short_name not in short_name_to_realtime_id:
+                     short_name_to_realtime_id[short_name] = rt_id # Legacy key, might need refinement
         except Exception as e:
-            print(f"Warning: Could not parse short name from target route '{rt_id}': {e}")
-            continue # Skip this target route if parsing fails
+            print(f"Warning: Could not parse agency/short name from target route '{rt_id}': {e}")
+            continue
 
     if not target_short_names:
-        print("ERROR: No valid target short names could be extracted from TARGET_ROUTES.")
-        return False
+        print("load_gtfs_shapes: No valid target short names could be extracted.")
+        return {}
 
-    print(f"Targeting short names: {target_short_names}")
-    print(f"Mapping short names back to realtime IDs: {short_name_to_realtime_id}")
+    # print(f"Targeting short names: {target_short_names}")
+    # print(f"Mapping (agency, short_name) back to realtime IDs: {short_name_to_realtime_id}")
+
 
     # --- Check required files exist ---
-    if not os.path.exists(shapes_file): print(f"ERROR: shapes.txt not found in {GTFS_STATIC_DIR}"); gtfs_files_exist = False
-    if not os.path.exists(trips_file): print(f"ERROR: trips.txt not found in {GTFS_STATIC_DIR}"); gtfs_files_exist = False
-    if not os.path.exists(routes_file): print(f"ERROR: routes.txt not found in {GTFS_STATIC_DIR}"); gtfs_files_exist = False
-    if not gtfs_files_exist: return False
+    if not os.path.exists(shapes_file): print(f"ERROR (load_gtfs_shapes): shapes2606.txt not found"); return {}
+    if not os.path.exists(trips_file): print(f"ERROR (load_gtfs_shapes): trips2606.txt not found"); return {}
+    if not os.path.exists(routes_file_path): print(f"ERROR (load_gtfs_shapes): routes2606.txt not found"); return {}
 
-    # --- Step 1: Read routes.txt -> Map short names to STATIC route IDs ---
-    short_name_to_static_ids = defaultdict(set)
-    static_id_to_short_name = {} # Reverse mapping helpful later
+    # --- Step 1: Read routes.txt -> Map (agency_id, short_name) to STATIC route IDs ---
+    # This map helps associate a specific agency's short_name with its static route_ids
+    agency_short_name_to_static_ids = defaultdict(set)
+    static_id_to_agency_short_name = {} # Reverse mapping
+
     try:
-        with open(routes_file, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
-            count = 0
+        with open(routes_file_path, 'r', encoding='utf-8-sig') as f_routes: # Renamed
+            reader = csv.DictReader(f_routes)
             for row in reader:
-                 count += 1
                  try:
                       current_short_name = row.get('route_short_name')
                       static_route_id = row.get('route_id')
-                      # Check if this route's short name is one we are targeting
-                      if current_short_name and static_route_id and current_short_name in target_short_names:
-                           short_name_to_static_ids[current_short_name].add(static_route_id)
-                           static_id_to_short_name[static_route_id] = current_short_name
-                 except KeyError as e:
-                      print(f"Warning: Missing expected column '{e}' in routes.txt row: {row}. Skipping.")
-                      continue
-            print(f"Read {count} routes. Found static IDs for {len(short_name_to_static_ids)} target short names: {short_name_to_static_ids}")
-            if not short_name_to_static_ids:
-                 print("ERROR: No routes found in routes.txt matching the target short names.")
-                 return False # Critical failure if no static routes match
-    except Exception as e:
-        print(f"ERROR: Failed to read routes.txt: {e}")
-        traceback.print_exc()
-        return False
+                      current_agency_id = row.get('agency_id')
 
-    all_relevant_static_ids = set(static_id_to_short_name.keys())
+                      # Only consider routes whose agency_id and short_name pair is targeted
+                      if current_agency_id and current_short_name and static_route_id and \
+                         current_short_name in target_short_names and \
+                         short_name_to_realtime_id.get((current_agency_id, current_short_name)): # Check if this combo is in our targets
+                           agency_short_name_to_static_ids[(current_agency_id, current_short_name)].add(static_route_id)
+                           static_id_to_agency_short_name[static_route_id] = (current_agency_id, current_short_name)
+                 except KeyError as e:
+                      print(f"Warning (load_gtfs_shapes): Missing column '{e}' in routes.txt row. Skipping.")
+                      continue
+            # print(f"Found static IDs for {len(agency_short_name_to_static_ids)} target (agency, short_name) pairs.")
+            if not agency_short_name_to_static_ids:
+                 print("ERROR (load_gtfs_shapes): No routes found in routes.txt matching target (agency, short_name)s.")
+                 return {}
+    except Exception as e:
+        print(f"ERROR (load_gtfs_shapes): Failed to read routes.txt: {e}")
+        traceback.print_exc()
+        return {}
+
+    all_relevant_static_ids = set(static_id_to_agency_short_name.keys())
     if not all_relevant_static_ids:
-         print("ERROR: Processing routes.txt yielded no relevant static route IDs.")
-         return False
+         print("ERROR (load_gtfs_shapes): Processing routes.txt yielded no relevant static route IDs.")
+         return {}
 
     # --- Step 2: Read trips.txt -> Map relevant STATIC route IDs to shape IDs ---
     static_id_to_shape_ids = defaultdict(set)
     try:
-        with open(trips_file, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
-            trip_count = 0
-            mapped_trip_count = 0
+        with open(trips_file, 'r', encoding='utf-8-sig') as f_trips: # Renamed
+            reader = csv.DictReader(f_trips)
             for row in reader:
-                 trip_count += 1
                  try:
                       static_route_id = row.get('route_id')
                       shape_id = row.get('shape_id')
-                      # Check if this trip uses one of the static IDs we care about
                       if static_route_id and shape_id and static_route_id in all_relevant_static_ids:
                            static_id_to_shape_ids[static_route_id].add(shape_id)
-                           mapped_trip_count += 1
                  except KeyError as e:
-                      print(f"Warning: Missing expected column '{e}' in trips.txt row: {row}. Skipping.")
+                      print(f"Warning (load_gtfs_shapes): Missing column '{e}' in trips.txt row. Skipping.")
                       continue
-            print(f"Processed {trip_count} trips. Found {mapped_trip_count} trips linking {len(static_id_to_shape_ids)} relevant static routes to shape IDs.")
-            if not static_id_to_shape_ids:
-                 print("ERROR: No trips found linking relevant static routes to any shape IDs.")
-                 # Don't return False here, maybe shapes will be found directly? Proceed but expect empty data.
+            # print(f"Found trips linking {len(static_id_to_shape_ids)} relevant static routes to shape IDs.")
     except Exception as e:
-        print(f"ERROR: Failed to read trips.txt: {e}")
+        print(f"ERROR (load_gtfs_shapes): Failed to read trips.txt: {e}")
         traceback.print_exc()
-        return False # Reading trips failed, can't proceed reliably
+        return {}
 
     all_relevant_shape_ids = set(s_id for shapes in static_id_to_shape_ids.values() for s_id in shapes)
     if not all_relevant_shape_ids:
-         print("WARNING: No relevant shape IDs were found after processing trips. No shapes can be loaded.")
-         # Proceed, ROUTE_SHAPES_DATA will remain empty
+         print("WARNING (load_gtfs_shapes): No relevant shape IDs found after processing trips.")
+         return {}
 
     # --- Step 3: Read shapes.txt -> Build dictionary of shape points ---
     shape_id_to_points = defaultdict(list)
     try:
-        with open(shapes_file, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
-            point_count = 0
-            loaded_point_count = 0
+        with open(shapes_file, 'r', encoding='utf-8-sig') as f_shapes: # Renamed
+            reader = csv.DictReader(f_shapes)
             for row in reader:
-                point_count += 1
                 try:
                     shape_id = row.get('shape_id')
-                    # Only process shapes that are actually needed
                     if shape_id and shape_id in all_relevant_shape_ids:
                         shape_id_to_points[shape_id].append({
                             'lat': float(row['shape_pt_lat']),
                             'lng': float(row['shape_pt_lon']),
                             'seq': int(row['shape_pt_sequence'])
                         })
-                        loaded_point_count += 1
-                except (ValueError, KeyError, TypeError) as e:
-                     # Don't warn for every point, could be millions. Log once?
-                     # print(f"Warning: Skipping invalid point in shapes.txt: {row} - Error: {e}")
+                except (ValueError, KeyError, TypeError):
                      continue
-            print(f"Processed {point_count} points from shapes.txt. Loaded {loaded_point_count} points for {len(shape_id_to_points)} relevant shape IDs.")
+            # print(f"Loaded points for {len(shape_id_to_points)} relevant shape IDs.")
     except Exception as e:
-        print(f"ERROR: Failed to read shapes.txt: {e}")
+        print(f"ERROR (load_gtfs_shapes): Failed to read shapes.txt: {e}")
         traceback.print_exc()
-        return False
+        return {}
 
-    # Sort points within each shape and keep only lat/lng
-    processed_shape_points = {} # Store final points keyed by shape_id
-    for shape_id in list(shape_id_to_points.keys()): # Iterate over keys copy
+    processed_shape_points = {}
+    for shape_id in list(shape_id_to_points.keys()):
         try:
              points = shape_id_to_points[shape_id]
              points.sort(key=lambda p: p['seq'])
              final_points = [{'lat': p['lat'], 'lng': p['lng']} for p in points]
-             if final_points and len(final_points) >= 2: # Only keep shapes with at least 2 valid points
+             if final_points and len(final_points) >= 2:
                 processed_shape_points[shape_id] = final_points
-             # else:
-             #    print(f"Debug: Shape {shape_id} removed as it had less than 2 valid points after sorting.")
         except Exception as e:
-            print(f"Warning: Error processing points for shape_id {shape_id}: {e}. Discarding shape.")
-            continue # Skip this shape
+            print(f"Warning (load_gtfs_shapes): Error processing points for shape_id {shape_id}: {e}.")
+            continue
 
     if not processed_shape_points:
-         print("WARNING: No valid shape coordinate lists were generated after processing shapes.txt.")
-         # Proceed, ROUTE_SHAPES_DATA will remain empty
+         print("WARNING (load_gtfs_shapes): No valid shape coordinate lists generated.")
+         return {}
 
-    # --- Step 4: Assemble final ROUTE_SHAPES_DATA keyed by REALTIME route ID ---
-    global ROUTE_SHAPES_DATA
-    ROUTE_SHAPES_DATA.clear()
-    final_routes_with_shapes = set()
-    shapes_added_count = 0
-    unique_shapes_added = set() # Track unique shape lists added per realtime_id
+    # --- Step 4: Assemble final route_shapes_for_this_request keyed by REALTIME route ID ---
+    # Iterate through the original target_realtime_routes passed to the function
+    for realtime_id in target_realtime_routes:
+        agency_id_part = agency_id_from_realtime_route.get(realtime_id)
+        # Extract short_name again, or use a pre-parsed map if available
+        short_name_part = None
+        if agency_id_part:
+            short_name_part = realtime_id[len(agency_id_part)+1:] # "2606_50" -> "50"
 
-    # Iterate through the original target short names
-    for short_name in target_short_names:
-        realtime_id = short_name_to_realtime_id.get(short_name)
-        if not realtime_id: continue # Should not happen if parsed correctly
+        if not agency_id_part or not short_name_part:
+            # print(f"Debug: Could not determine agency/short_name for {realtime_id}, skipping.")
+            continue
 
-        static_ids = short_name_to_static_ids.get(short_name, set())
-        if not static_ids: continue # No static routes matched this short name
+        # Find the (agency_id, short_name) key used in our maps
+        lookup_key = (agency_id_part, short_name_part)
 
-        # Use a temporary set for this realtime_id to store tuples of points (hashable) to ensure uniqueness
-        shapes_for_this_realtime_id = set()
+        static_ids_for_key = agency_short_name_to_static_ids.get(lookup_key, set())
+        if not static_ids_for_key:
+            # print(f"Debug: No static IDs found for key {lookup_key} (realtime_id: {realtime_id})")
+            continue
 
-        for static_id in static_ids:
-            shape_ids = static_id_to_shape_ids.get(static_id, set())
-            for shape_id in shape_ids:
+        shapes_for_this_realtime_id = set() # Using set of tuples to ensure unique shape paths
+
+        for static_id in static_ids_for_key:
+            shape_ids_for_static_route = static_id_to_shape_ids.get(static_id, set())
+            for shape_id in shape_ids_for_static_route:
                 if shape_id in processed_shape_points:
                     point_list = processed_shape_points[shape_id]
-                    # Convert list of dicts to tuple of tuples to make it hashable for the set
-                    point_tuple = tuple(tuple(p.items()) for p in point_list)
+                    point_tuple = tuple(tuple(p.items()) for p in point_list) # Make hashable
                     shapes_for_this_realtime_id.add(point_tuple)
-                    unique_shapes_added.add(shape_id) # Track overall unique shapes used
-                # else:
-                    # Shape wasn't processed correctly or wasn't relevant
-                    # print(f"Debug: Shape {shape_id} for static route {static_id} not found in processed shapes.")
 
         if shapes_for_this_realtime_id:
-             final_routes_with_shapes.add(realtime_id)
-             # Convert back from tuple of tuples to list of dicts for JSON
-             ROUTE_SHAPES_DATA[realtime_id] = [
+             route_shapes_for_this_request[realtime_id] = [
                  [dict(p) for p in point_tuple] for point_tuple in shapes_for_this_realtime_id
              ]
-             shapes_added_count += len(shapes_for_this_realtime_id)
 
-
-    if not ROUTE_SHAPES_DATA:
-        print("WARNING: ROUTE_SHAPES_DATA is empty after final assembly. No route shapes will be displayed.")
+    if not route_shapes_for_this_request:
+        print(f"WARNING (load_gtfs_shapes): route_shapes_for_this_request is empty for targets: {target_realtime_routes}")
     else:
-        print(f"Successfully loaded {shapes_added_count} unique shape paths (from {len(unique_shapes_added)} unique shape IDs) for {len(final_routes_with_shapes)} target routes into ROUTE_SHAPES_DATA.")
-        # Example: print(f"Data for {list(ROUTE_SHAPES_DATA.keys())[0]}: {len(ROUTE_SHAPES_DATA[list(ROUTE_SHAPES_DATA.keys())[0]])} shapes")
+        print(f"Successfully generated shapes for {len(route_shapes_for_this_request)} of the {len(target_realtime_routes)} requested routes.")
 
-    return True # Indicate function completed, even if some routes have no shapes
-
+    return dict(route_shapes_for_this_request) # Convert back to dict from defaultdict for cleaner JSON
 
 # --- Flask App Setup ---
 app = Flask(__name__)
 
-# --- Load GTFS Data ONCE on startup ---
+# --- GTFS Data Loading is now on-demand via API calls ---
 print("-----------------------------------------------------")
-if not load_gtfs_shapes(TARGET_ROUTES):
-     print("*****************************************************")
-     print("WARNING: Failed to load GTFS shapes properly.")
-     print("Check GTFS files exist in 'gtfs_static' directory and are valid.")
-     print("Route paths may not be available on the map.")
-     print("*****************************************************")
-else:
-     print("GTFS shapes loaded successfully.")
+print("GTFS static data will be loaded on-demand per API request.")
+print("Ensure GTFS files exist in 'gtfs_static' directory.")
+# Initialize agency name map once at startup
+get_agency_name_map()
 print("-----------------------------------------------------")
-# --- End Load GTFS Data ---
 
 # --- Routes ---
 @app.route('/')
@@ -255,105 +265,154 @@ def index():
     """Renders the main HTML page with the map."""
     if not GOOGLE_MAPS_API_KEY:
         return "Error: Google Maps API Key not configured in .env file.", 500
-    # Pass the Google Maps API key to the template
-    # return render_template('index.html', google_maps_api_key=GOOGLE_MAPS_API_KEY)
-    # Prepare the route list for display
-    # Extracts the part after '_' if present, otherwise uses the whole ID
-    # Sorts them numerically if possible, otherwise alphabetically
-    route_short_names = []
-    for r in TARGET_ROUTES:
-        parts = r.split('_')
-        short_name = parts[-1] if len(parts) > 1 else r # Get last part or whole string
-        route_short_names.append(short_name)
+    # tracked_routes_display is now handled by JavaScript
+    return render_template('index.html', google_maps_api_key=GOOGLE_MAPS_API_KEY)
 
-    # Try sorting numerically, fallback to string sort if conversion fails
-    try:
-        sorted_routes = sorted(route_short_names, key=int)
-    except ValueError:
-        sorted_routes = sorted(route_short_names)
-
-    routes_display_string = ", ".join(sorted_routes)
-
-    # Pass the Google Maps API key AND the routes string to the template
-    return render_template(
-        'index.html',
-        google_maps_api_key=GOOGLE_MAPS_API_KEY,
-        tracked_routes_display=routes_display_string # Pass the processed string
-    )
+@app.route('/api/agencies')
+def api_get_agencies():
+    agencies = []
+    agency_name_map = get_agency_name_map() # Use cached map
+    # Determine unique agency_ids from routes2606.txt
+    # (In future, this would be routes.txt for all operators)
+    routes_file = os.path.join(GTFS_STATIC_DIR, 'routes2606.txt')
     
+    found_agency_ids = set()
+    if not os.path.exists(routes_file):
+        print(f"ERROR (/api/agencies): {routes_file} not found.")
+        return jsonify({"error": f"{routes_file} not found"}), 404
+    
+    try:
+        with open(routes_file, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get('agency_id'):
+                    found_agency_ids.add(row['agency_id'])
+    except Exception as e:
+        print(f"Error reading {routes_file} for agencies: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Could not read routes data to determine agencies: {e}"}), 500
+
+    if not found_agency_ids:
+        print("WARNING (/api/agencies): No agency_ids found in routes file.")
+        return jsonify([]) # Return empty list if no agencies derived
+
+    for aid in sorted(list(found_agency_ids)): # Sort for consistent order
+        agencies.append({
+            "id": aid,
+            "name": agency_name_map.get(aid, f"Unknown Agency (ID: {aid})")
+        })
+    return jsonify(agencies)
+
+@app.route('/api/routes_by_agency')
+def api_get_routes_by_agency():
+    agency_ids_str = request.args.get('agency_ids')
+    if not agency_ids_str:
+        return jsonify({"error": "agency_ids parameter is required"}), 400
+    
+    target_agency_ids = set(aid_part.strip() for aid_part in agency_ids_str.split(',') if aid_part.strip())
+    if not target_agency_ids:
+        return jsonify({"error": "agency_ids parameter was empty or invalid"}), 400
+
+    routes_data = []
+    # (In future, this would be routes.txt for all operators)
+    routes_file = os.path.join(GTFS_STATIC_DIR, 'routes2606.txt')
+
+    if not os.path.exists(routes_file):
+        print(f"ERROR (/api/routes_by_agency): {routes_file} not found.")
+        return jsonify({"error": f"{routes_file} not found"}), 404
+
+    try:
+        with open(routes_file, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            seen_realtime_ids = set() # To avoid duplicates if any static routes map to same realtime_id
+            for row in reader:
+                agency_id = row.get('agency_id')
+                route_short_name = row.get('route_short_name')
+                if agency_id in target_agency_ids and route_short_name:
+                    realtime_route_id = f"{agency_id}_{route_short_name}"
+                    if realtime_route_id in seen_realtime_ids:
+                        continue
+                    seen_realtime_ids.add(realtime_route_id)
+                    
+                    routes_data.append({
+                        "realtime_id": realtime_route_id,
+                        "short_name": route_short_name,
+                        "long_name": row.get('route_long_name', ''),
+                        "agency_id": agency_id,
+                        # "static_route_id": row.get('route_id') # Optional: for debugging
+                    })
+        
+        # Sort routes for consistent display, e.g., by short_name (numerically if possible)
+        def sort_key_routes(route):
+            # Attempt to sort numerically on the main part of short_name
+            # Handles "53" and "53/3" by primary number, then by full string for sub-routes
+            parts = route['short_name'].split('/')
+            try:
+                primary_num = int(parts[0])
+                return (primary_num, route['short_name'])
+            except ValueError:
+                return (float('inf'), route['short_name']) # Non-numeric names last
+
+        routes_data.sort(key=sort_key_routes)
+
+    except Exception as e:
+        print(f"Error reading {routes_file} for routes: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"Could not read routes data: {e}"}), 500
+        
+    return jsonify(routes_data)
+
 @app.route('/api/bus_data')
 def get_bus_data():
     """API endpoint to fetch and return filtered bus data as JSON."""
-    print("API: Fetching bus data...") # Log when this endpoint is hit
+    selected_routes_str = request.args.get('routes')
+    
+    target_routes = set()
+    if selected_routes_str: # If routes param exists and is not empty
+        target_routes = set(r.strip() for r in selected_routes_str.split(',') if r.strip())
+
+    if not target_routes:
+        # print("API: /api/bus_data - No specific routes selected or provided. Returning no buses.")
+        return jsonify([]) # Return empty list if no routes are specified
+
+    # print(f"API: Fetching bus data for routes: {target_routes}")
     if not TFNSW_API_KEY or not TFNSW_BUS_URL:
          print("API Error: TfNSW API Key or URL not configured.")
          return jsonify({"error": "Server configuration error (TfNSW API)"}), 500
 
     try:
-        # Call the imported function
-        buses = fetch_and_filter_bus_positions(TFNSW_BUS_URL, TFNSW_API_KEY, TARGET_ROUTES)
-
+        buses = fetch_and_filter_bus_positions(TFNSW_BUS_URL, TFNSW_API_KEY, target_routes)
         if buses is None:
-            # Function indicated an error during fetch/parse
             print("API Error: fetch_and_filter_bus_positions returned None")
             return jsonify({"error": "Failed to fetch or parse bus data from TfNSW"}), 500
-        else:
-            pass
-            # print(f"API: Found {len(buses)} buses.... (later)")
-            #  # Make sure latitude/longitude are numbers, filter out buses without valid coords
-            # valid_buses = [
-            #     bus for bus in buses
-            #     if bus.get('latitude') is not None and bus.get('longitude') is not None
-            # ]
-            # print(f"API: Returning {len(valid_buses)} buses with valid coordinates.")
-
-            # for bus in buses:
-            #     # --- MODIFIED LINE ---
-            #     # Use .get('timestamp') which returns None if key is missing
-            #     timestamp_obj = bus.get('timestamp')
-            #     time_str = timestamp_obj.strftime('%H:%M:%S') if timestamp_obj else 'No Timestamp'
-            #     # --- END MODIFIED LINE ---
-
-            #     # Use .get() for lat/lon as well for extra safety
-            #     lat = bus.get('latitude')
-            #     lon = bus.get('longitude')
-            #     lat_str = f"{lat:.5f}" if lat is not None else 'N/A'
-            #     lon_str = f"{lon:.5f}" if lon is not None else 'N/A'
-
-            #     # Use .get() for speed and vehicle_id
-            #     speed_str = bus.get('speed', 'N/A') # Provide default directly
-            #     vehicle_id_str = bus.get('vehicle_id', 'N/A')
-            #     route_id_str = bus.get('route_id', 'N/A')
-
-
-            #     print(f"Route: {route_id_str:<10} | Vehicle: {vehicle_id_str:<8} | " # Adjusted padding
-            #           f"Lat: {lat_str:<10} | Lon: {lon_str:<11} | "
-            #           f"Speed: {speed_str:<10} | Time: {time_str}")
-
-            # return jsonify(valid_buses) # Return the list of bus dicts as JSON
-            return jsonify(buses) # Return the list of bus dicts as JSON
+        # print(f"API: Returning {len(buses)} buses.")
+        return jsonify(buses)
 
     except Exception as e:
-        print(f"API Exception: An unexpected error occurred: {e}")
-        # Log the full exception for debugging if needed
         print(f"API Exception in /api/bus_data: An unexpected error occurred: {e}")
-        import traceback
         traceback.print_exc()
         return jsonify({"error": "An unexpected server error occurred processing bus data"}), 500
 
 @app.route('/api/route_shapes')
-def get_route_shapes():
-    """API endpoint to return the pre-loaded route shape data."""
-    # print("API Request: /api/route_shapes") # Keep console less noisy
-    # ROUTE_SHAPES_DATA is the global dict populated on startup
-    if not ROUTE_SHAPES_DATA:
-        # This can happen if GTFS loading failed or found no shapes for target routes
-        print("API Warning: Route shapes requested, but ROUTE_SHAPES_DATA is empty or loading failed.")
-        return jsonify({}) # Return empty object, let frontend handle it gracefully
-    return jsonify(ROUTE_SHAPES_DATA)
+def api_get_route_shapes(): # Renamed function to avoid conflict
+    """API endpoint to return route shape data for specified routes."""
+    selected_routes_str = request.args.get('routes')
+    
+    target_realtime_routes = set()
+    if selected_routes_str: # If routes param exists and is not empty
+        target_realtime_routes = set(r.strip() for r in selected_routes_str.split(',') if r.strip())
+
+    if not target_realtime_routes:
+        # print("API: /api/route_shapes - No specific routes selected. Returning no shapes.")
+        return jsonify({}) # Return empty object if no routes are specified
+
+    # Call the modified load_gtfs_shapes function
+    # This will read and process GTFS files for the requested routes.
+    shapes_data = load_gtfs_shapes(target_realtime_routes)
+    
+    # shapes_data will be an empty dict if load_gtfs_shapes failed or found nothing
+    return jsonify(shapes_data)
 
 # --- Run the App ---
 if __name__ == '__main__':
-    # Debug=True automatically reloads on code changes
-    # Use host='0.0.0.0' to make it accessible on your network (optional)
     app.run(debug=True, host='0.0.0.0', port=5000)
