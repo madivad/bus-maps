@@ -9,16 +9,19 @@ A tool for visualizing bus routes on a map.
 You will need two API keys, one for the buses, their time tables, routes, agents, etc. And one for google maps.
 
 1. Get an API key for NSW Transport:  
-        https://opendata.transport.nsw.gov.au/data/dataset/  
         Sign up (no cost) and get an API key here, you can also download the large static files from here as well  
-        BUS_URL = https://opendata.transport.nsw.gov.au/data/user/<YOUR-USER>/api-tokens  
-        https://opendata.transport.nsw.gov.au/dataset/trip-planner-apis  
         The large static files can be downloaded form here:  
+
+        https://opendata.transport.nsw.gov.au/dataset/trip-planner-apis  
+        https://opendata.transport.nsw.gov.au/data/dataset/  
+        https://opendata.transport.nsw.gov.au/data/user/YOUR-USER-NAME/api-tokens
+
+        At the moment, you'll also need to download the static files from:  
         https://opendata.transport.nsw.gov.au/data/dataset/timetables-complete-gtfs  
+        This is about 325MB, unzipped it is over a GB, and has files YOU DON'T want to sync with github! I should include the whole directory, I probably will later. I would like my script to determine if you have the files and it just downloads it, but only if you have an API key (not yet implemented).
 
 
-
-2. Get an API key for google maps:
+3. Get an API key for google maps:
         Do this in the Google API Console
         https://console.cloud.google.com/apis/dashboard
 
