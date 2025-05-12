@@ -62,11 +62,14 @@ You will need two API keys, one for the buses, their time tables, routes, agents
 
 ## Setup
 
-You need two API keys and the URL for the bus stop, paths, routes and others
-`-- .env --`
-```API_KEY = "--YOUR TRANSPORT KEY--"
+You need two API keys and the URL for the bus stop, paths, routes and others:
+```
+# .env 
+
+API_KEY = "--YOUR TRANSPORT KEY--"
 GOOGLE_MAPS_API_KEY="--YOUR GOOGLE API KEY--"
 BUS_URL = "https://api.transport.nsw.gov.au/v1/gtfs/vehiclepos/buses"
+```
 
-It's a flask web server in python, it pulls fixed maps from my local operator (editable in app.py).
+It's a flask web server in python, it pulls fixed maps from my local operator (editable in app.py) and then updates their locations in real time.
 
