@@ -62,6 +62,7 @@ You will need two API keys, one for the buses, their time tables, routes, agents
 
 ## Setup
 
+You need two API keys and the URL for the bus stop, paths, routes and others
 `-- .env --`
 ```API_KEY = "--YOUR TRANSPORT KEY--"
 GOOGLE_MAPS_API_KEY="--YOUR GOOGLE API KEY--"
