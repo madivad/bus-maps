@@ -63,18 +63,9 @@ You will need two API keys, one for the buses, their time tables, routes, agents
 ## Setup
 
 `-- .env --`
-```API_KEY = "<YOUR TRANSPORT KEY>"
-GOOGLE_MAPS_API_KEY="<YOUR GOOGLE API KEY>"
+```API_KEY = "--YOUR TRANSPORT KEY--"
+GOOGLE_MAPS_API_KEY="--YOUR GOOGLE API KEY--"
 BUS_URL = "https://api.transport.nsw.gov.au/v1/gtfs/vehiclepos/buses"
-RESTFULCOUNTRIES_API_KEY="<NOT USED>"```
 
 It's a flask web server in python, it pulls fixed maps from my local operator (editable in app.py).
 
-Nothing fancy yet
-
-/Initially used this but removed quickly, had different intentions/
-Base URL
-GET https://restfulcountries.com/api/v1
-All Countries
-GET https://restfulcountries.com/api/v1/countries
-Returns information of all the countries available in the world. Including every other information on that country
