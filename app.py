@@ -24,6 +24,7 @@ TARGET_ROUTES = {"2606_50", "2606_54", "2606_55", "2606_60", "2606_70", "2606_53
 
 # --- Constants ---
 GTFS_STATIC_DIR = 'gtfs_static' # Folder where you extracted GTFS zip
+DATA_REFRESH_INTERVAL_SECONDS = '10'
 
 # --- Global variable to store processed shapes ---
 # Structure: { "route_id": [[{lat: y, lng: x}, ...], [{lat: y, lng: x}, ...]], ... }
@@ -273,12 +274,15 @@ def index():
         sorted_routes = sorted(route_short_names)
 
     routes_display_string = ", ".join(sorted_routes)
+    
+    
 
     # Pass the Google Maps API key AND the routes string to the template
     return render_template(
         'index.html',
         google_maps_api_key=GOOGLE_MAPS_API_KEY,
-        tracked_routes_display=routes_display_string # Pass the processed string
+        tracked_routes_display=routes_display_string,    # Pass the processed string
+        remaining_time=DATA_REFRESH_INTERVAL_SECONDS     # time to refresh 
     )
     
 @app.route('/api/bus_data')

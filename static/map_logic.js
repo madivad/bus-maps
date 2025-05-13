@@ -7,6 +7,14 @@ let routePolylines = {};
 const animationDuration = 1500; // Milliseconds for marker animation
 let animationFrameId = null; // To control the animation loop
 
+// --- Countdown Timer Variables ---
+const JS_DATA_REFRESH_INTERVAL_SECONDS = 10; // Should match DATA_REFRESH_INTERVAL_SECONDS in app.py and setInterval below
+const FETCH_API_AT_COUNT = 1; // <<< NEW: Fetch when countdown reaches this value (e.g., 2 seconds left)
+let countdownValue = JS_DATA_REFRESH_INTERVAL_SECONDS;
+let countdownIntervalId = null; // To store the ID of the 1-second interval
+let timerDisplayElement; // To store the <div> element
+let isFetchingApiData = false; // <<< NEW: Flag to track if an early fetch is in progress
+
 // IMPORTANT: This function is called by the Google Maps script's callback parameter
 async function initMap() {
     console.log(">>> initMap function STARTED!"); // <-- ADD 2
@@ -27,11 +35,65 @@ async function initMap() {
 
     console.log("Map initialized.");
 
+    timerDisplayElement = document.getElementById("small-timer");
+    if (timerDisplayElement) {
+        updateTimerDisplay();
+        startOneSecondCountdown(); // This will now also handle the early fetch
+    } else {
+        console.error("Timer display element 'small-timer' not found!");
+    }
+
     await fetchAndDrawRouteShapes();
-    await fetchAndUpdateMarkers();
+    isFetchingApiData = true;
+    await fetchAndUpdateMarkers().finally(() => {
+        isFetchingApiData = false;
+    });
     startAnimationLoop();
-    setInterval(fetchAndUpdateMarkers, 20000); // 20 seconds
+
+    // setInterval(fetchAndUpdateMarkers, 10000); // 10 seconds
+    setInterval(() => {
+        resetCountdown();
+    },JS_DATA_REFRESH_INTERVAL_SECONDS * 1000);
 }
+
+// --- Countdown Timer Functions ---
+function updateTimerDisplay() {
+    if (timerDisplayElement) {
+        timerDisplayElement.textContent = `${countdownValue}`;
+    }
+}
+
+function startOneSecondCountdown() {
+    if (countdownIntervalId) {
+        clearInterval(countdownIntervalId); // Clear any existing 1-second interval
+    }
+    countdownIntervalId = setInterval(async () => {
+        countdownValue--;
+        updateTimerDisplay();
+
+        if (countdownValue === FETCH_API_AT_COUNT && !isFetchingApiData) {
+            console.log(`Countdown reached ${FETCH_API_AT_COUNT}s. Fetching data early...`);
+            isFetchingApiData = true;
+            // We call fetchAndUpdateMarkers but don't necessarily need to await it here
+            // as the countdown continues independently. The .finally ensures the flag is reset.
+            fetchAndUpdateMarkers().finally(() => {
+                isFetchingApiData = false;
+                console.log("Early data fetch complete.");
+            });
+        }
+    }, 1000);
+
+}
+
+function resetCountdown() {
+    countdownValue = JS_DATA_REFRESH_INTERVAL_SECONDS; // Reset to full interval
+    updateTimerDisplay(); // Immediately update the display
+    // The startOneSecondCountdown and its setInterval are already running,
+    // so just resetting countdownValue is enough for it to pick up.
+}
+
+// --- End Countdown Timer Functions ---
+
 
 // --- Assign to window explicitly ---
 // This ensures Google Maps API loader finds it after this script is parsed.

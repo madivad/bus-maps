@@ -1,6 +1,6 @@
 /* Basic styling for the map container */
 #map {
-    height: 95vh; /* Make map take most of the viewport height */
+    height: calc(100vh - 60px); /* Make map take most of the viewport height */
     width: 100%;
     border: 3px solid red;
 }
@@ -18,6 +18,27 @@ h3 {
     margin-bottom: 5px;
     font-size: 1.1em;
     color: #333;
+}
+
+.head-container {
+    display: flex; /* Enables Flexbox layout */
+    justify-content: space-between; /* This pushes children to opposite ends */
+    align-items: baseline; /* Aligns items along their text baseline. 'center' is another option for vertical centering. */
+    padding: 10px 15px; /* Adds some spacing around the header content */
+    border-bottom: 1px solid #ccc; /* Optional: a light line below the header */
+    margin-bottom: 10px; /* Adds space between the header and the map */
+}
+
+.head-container h3 {
+    margin: 0; /* Removes default h3 margins which can affect alignment */
+    margin-right: 15px; /* Adds some space between the h3 and the timer */
+    font-size: 1.3em; /* Adjust font size as needed */
+}
+
+#small-timer {
+    margin: 0; /* Removes default div margins */
+    font-size: 0.9em; /* Slightly smaller font for the timer */
+    color: #c7c7c7; /* Dark grey color for the timer text */
 }
 
 /* You can add styles for the future sidebar here later */

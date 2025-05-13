@@ -6,7 +6,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h3>Realtime Bus Positions (Routes: {{ tracked_routes_display }})</h3>
+    <div class="head-container">
+        <div id="small-timer">{{ remaining_time }}</div>
+        <h3>Realtime Bus Positions (Routes: {{ tracked_routes_display }})</h3>
+    </div>
     <div id="map"></div>
 
     <!-- Load Google Maps API -->
