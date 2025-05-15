@@ -7,35 +7,40 @@ import traceback
 from flask import render_template, jsonify, request
 
 # Import the app object and data utility functions from application.py
-from application import app, load_gtfs_shapes, get_agency_name_map 
+from application import app, load_gtfs_shapes, get_agency_name_map
 # Import the function from your bus script
 from buses import fetch_and_filter_bus_positions
 
 
 @app.route('/')
 def index():
-    """Renders the main HTML page with the map."""
-    # Access config via app.config
+    """Renders the main HTML page. The Google Maps API key will be fetched by JS."""
+    # The Google Maps API key is no longer passed directly to the template.
+    return render_template('index.html')
+
+@app.route('/api/maps_config')
+def api_maps_config():
+    """Provides the Google Maps API key to the frontend."""
     google_maps_key = app.config.get("GOOGLE_MAPS_API_KEY")
     if not google_maps_key:
-        return "Error: Google Maps API Key not configured.", 500
-    return render_template('index.html', google_maps_api_key=google_maps_key)
+        # Log this error server-side for monitoring
+        print("ERROR: GOOGLE_MAPS_API_KEY not found in server configuration.")
+        return jsonify({"error": "Google Maps API Key not configured on server."}), 500
+    return jsonify({"google_maps_api_key": google_maps_key})
+
 
 @app.route('/api/agencies')
 def api_get_agencies():
     agencies = []
     agency_name_map = get_agency_name_map() # Uses the cached map from application.py
     
-    # Access GTFS_STATIC_DIR via app.config or directly if it's globally available from application.py
-    # For this example, assuming GTFS_STATIC_DIR is accessible if defined globally in application.py
-    # A cleaner way would be to pass app.config['GTFS_STATIC_DIR']
-    gtfs_static_dir = app.config.get("GTFS_STATIC_DIR", 'gtfs_static') # Fallback just in case
+    gtfs_static_dir = app.config.get("GTFS_STATIC_DIR", 'gtfs_static')
     routes_file = os.path.join(gtfs_static_dir, 'routes2606.txt')
     
     found_agency_ids = set()
     if not os.path.exists(routes_file):
         print(f"ERROR (/api/agencies): {routes_file} not found.")
-        return jsonify({"error": f"{os.path.basename(routes_file)} not found"}), 404 # Use basename for security
+        return jsonify({"error": f"{os.path.basename(routes_file)} not found"}), 404
     
     try:
         with open(routes_file, 'r', encoding='utf-8-sig') as f:
@@ -151,5 +156,5 @@ def api_get_route_shapes():
     if not target_realtime_routes:
         return jsonify({})
     
-    shapes_data = load_gtfs_shapes(target_realtime_routes) # Uses the cached function from application.py
+    shapes_data = load_gtfs_shapes(target_realtime_routes)
     return jsonify(shapes_data)
