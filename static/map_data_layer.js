@@ -189,12 +189,21 @@ async function fetchAndDrawRouteShapes(routesParam) {
                         path: validPathPoints,
                         geodesic: true,
                         strokeColor: colorForPolyline,
-                        strokeOpacity: 0.45,
-                        strokeWeight: 5,
-                        zIndex: 1 // Lower zIndex for paths than markers
+                        strokeOpacity: G.DEFAULT_POLYLINE_OPACITY, // Uses global constant
+                        strokeWeight: G.DEFAULT_POLYLINE_WEIGHT,   // Uses global constant
+                        zIndex: G.DEFAULT_POLYLINE_ZINDEX,         // Uses global constant
+                        clickable: true // Make the polyline clickable
                     });
                     polyline.setMap(G.map);
                     newRoutePolylines[routeId].push(polyline);
+
+                    // Add click listener to the polyline itself
+                    const currentRouteIdForListener = routeId; // Capture routeId for the listener
+                    polyline.addListener('click', () => {
+                        console.log(`Polyline for route ${currentRouteIdForListener} clicked.`);
+                        handleRouteInteraction(currentRouteIdForListener);
+                });
+
                 } catch (e) {
                     console.error(`fetchAndDrawRouteShapes: Error creating polyline for ${routeId}`, e, validPathPoints);
                 }

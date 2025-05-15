@@ -5,8 +5,8 @@ console.log("map_globals.js: PARSING.");
 export let map;
 export let busMarkerObjects = {};
 export let routePolylines = {};
-export let animationFrameId = null; // For smooth marker animation
-export let dataFetchIntervalId = null; // For periodic data fetching
+export let animationFrameId = null;
+export let dataFetchIntervalId = null;
 
 // --- Application State Variables ---
 export let selectedOperatorIds = new Set();
@@ -30,6 +30,26 @@ export let selectedRoutesListDiv, availableRoutesListDiv, saveRoutesBtn, routeSe
 export let mapTitleH3;
 export let updateFrequencySelect, toggleLiveTrackingCheckbox, toggleRoutePathsCheckbox, saveOptionsBtn;
 export let timerDisplayElement;
+
+// -- Styles for overlaying routes and making them more visible
+export const DEFAULT_POLYLINE_OPACITY = 0.35;
+export const DEFAULT_POLYLINE_WEIGHT = 5;
+export const DEFAULT_POLYLINE_ZINDEX = 1;
+
+// Styles for highlighted route
+export const HIGHLIGHTED_POLYLINE_OPACITY = 0.9;
+export const HIGHLIGHTED_POLYLINE_WEIGHT = 7;
+export const HIGHLIGHTED_POLYLINE_ZINDEX = 5;
+
+// Styles for de-emphasized (other) routes when one is highlighted
+export const DEEMPHASIZED_POLYLINE_OPACITY = 0.15;
+export const DEEMPHASIZED_POLYLINE_WEIGHT = 4;
+export const DEEMPHASIZED_POLYLINE_ZINDEX = DEFAULT_POLYLINE_ZINDEX;
+// DEEMPHASIZED_POLYLINE_ZINDEX can remain DEFAULT_POLYLINE_ZINDEX
+
+// State variable to track the currently highlighted route
+export let currentlyHighlightedRouteId = null;
+export function setCurrentlyHighlightedRouteId(routeId) { currentlyHighlightedRouteId = routeId; }
 
 // --- Countdown Timer Variables ---
 export const JS_DATA_REFRESH_INTERVAL_SECONDS = 10;
