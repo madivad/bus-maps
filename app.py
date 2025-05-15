@@ -17,7 +17,6 @@ load_dotenv()
 TFNSW_API_KEY = os.getenv("API_KEY")
 TFNSW_BUS_URL = "https://api.transport.nsw.gov.au/v1/gtfs/vehiclepos/buses" # BUS_URL = os.getenv("BUS_URL")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
-
 # --- Constants ---
 GTFS_STATIC_DIR = 'gtfs_static'
 

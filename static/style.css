@@ -106,7 +106,7 @@ html, body {
 }
 
 .modal-list.fixed-list {
-    max-height: 150px; /* Adjust as needed */
+    max-height: 350px; /* Adjust as needed */
     overflow-y: auto;
     border: 1px solid #eee;
     padding: 10px;
@@ -132,6 +132,7 @@ html, body {
 
 #routes-modal .modal-content {
     max-width: 600px; /* Wider modal for routes */
+    max-height: 1200px;
 }
 
 #selected-routes-list-container h4,
