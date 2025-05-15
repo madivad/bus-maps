@@ -584,20 +584,28 @@ async function fetchAndUpdateMarkers(routesParam) {
                     <strong>Coords:</strong> ${bus.latitude.toFixed(5)}, ${bus.longitude.toFixed(5)}
                 </div>`;
             
-            const iconSize = 40; const circleRadius = 12; const center = iconSize / 2;
+            const iconSize = 50; const circleRadius = 12; const center = iconSize / 2;
             const pointerHeight = 12; const pointerWidth = 15;
-            const fontSize = routeShortName.length > 2 ? 11 : 15;
+            const fontSize = routeShortName.length > 2 ? 8 : 10;
             const arrowOffset = 10;
 
             const svgContent = `
-                <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 ${iconSize} ${iconSize}" xmlns="http://www.w3.org/2000/svg">
-                  <g transform="rotate(${bearing}, ${center}, ${center})">
-                    <circle cx="${center}" cy="${center}" r="${circleRadius}" fill="black" stroke="white" stroke-width="1.5"/>
-                    <polygon points="${center},${center - circleRadius + 1 - arrowOffset} ${center - pointerWidth / 2},${center - circleRadius + pointerHeight - arrowOffset} ${center + pointerWidth / 2},${center - circleRadius + pointerHeight + 1 - arrowOffset}" 
-                             fill="black" stroke="${arrowStrokeColor}" stroke-width="1.5" />
-                    <text x="${center}" y="${center + 1}" fill="white" font-size="${fontSize}" font-weight="bold" font-family="Arial, sans-serif" text-anchor="middle" dominant-baseline="middle" transform="rotate(${-bearing}, ${center}, ${center})">${routeShortName}</text>
-                  </g>
-                </svg>`;
+                <svg version="1.1" width="${iconSize}" height="${iconSize}" xmlns="http://www.w3.org/2000/svg">0
+                    <g transform="rotate(${bearing}, 25, 25)">
+                        <polygon points="
+                            ${iconSize *.5} ,${iconSize * .2} 
+                            ${iconSize *.7} ,${iconSize * .3} 
+                            ${iconSize *.65},${iconSize * .7} 
+                            ${iconSize *.35},${iconSize * .7} 
+                            ${iconSize *.3} ,${iconSize * .3} 
+                            " fill="${arrowStrokeColor}" stroke="black" stroke-width="1.5"/>
+                        <circle cx="${iconSize / 2}" cy="${iconSize * .5}" r="${iconSize *.15}" fill="black" dominant-baseline="central"/>
+                        <text x="${iconSize / 2}" y="${iconSize / 2}" font-size="${fontSize}" 
+                                text-anchor="middle" dominant-baseline="central" 
+                                fill="white" font-family="Arial, sans-serif"
+                                transform="rotate(${-bearing}, 25, 25)">${routeShortName}</text>
+                    </g>
+                </svg>`
 
             if (busMarkerObjects[vehicleId]) {
                 const md = busMarkerObjects[vehicleId];
