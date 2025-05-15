@@ -158,7 +158,6 @@ html, body {
 
 #routes-modal .modal-content {
     max-width: 600px; /* Wider modal for routes */
-    max-height: 1200px;
 }
 
 #selected-routes-list-container h4,
@@ -170,15 +169,15 @@ html, body {
     margin: 15px 0;
 }
 
-/* --- NEW: Options Modal Specifics (if any) --- */
+/* --- Options Modal Specifics --- */
 #options-content-area .option-item {
     margin-bottom: 15px;
-    display: flex; /* For aligning label and select/checkbox */
+    display: flex; 
     align-items: center;
 }
 #options-content-area .option-item label:first-child { /* For labels NOT wrapping an input */
     margin-right: 10px;
-    flex-shrink: 0; /* Prevent label from shrinking */
+    flex-shrink: 0; 
 }
 #options-content-area .option-item select {
     padding: 5px;
