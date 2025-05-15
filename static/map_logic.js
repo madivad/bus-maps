@@ -1,112 +1,564 @@
-console.log("map_logic.js script started parsing."); // <-- ADD 1
+console.log("map_logic.js script START PARSING.");
 
-// Global variables (accessible within this script)
+// --- Global variables ---
 let map;
 let busMarkerObjects = {};
 let routePolylines = {};
-const animationDuration = 1500; // Milliseconds for marker animation
-let animationFrameId = null; // To control the animation loop
+const animationDuration = 1500;
+let animationFrameId = null;
+let dataFetchIntervalId = null;
 
-// IMPORTANT: This function is called by the Google Maps script's callback parameter
+let selectedOperatorIds = new Set();
+let selectedRealtimeRouteIds = new Set();
+
+const ROUTE_COLORS = ['#FF5733', '#3375FF', '#33FF57', '#FFC300', '#C70039', '#900C3F', '#581845', '#FF8C00', '#00CED1', '#DA70D6', '#20B2AA', '#FF4500', '#4682B4', '#8A2BE2', '#D2691E'];
+let assignedRouteColors = {};
+
+let currentMapOptions = {
+    updateIntervalMs: 10000,
+    liveTrackingEnabled: true,
+    showRoutePathsEnabled: true
+};
+
+// DOM Elements
+let btnOperators, btnRoutes, btnOptions;
+let operatorsModal, routesModal, optionsModal;
+let closeOperatorsModalBtn, closeRoutesModalBtn, closeOptionsModalBtn;
+let operatorsListDiv, saveOperatorsBtn;
+let selectedRoutesListDiv, availableRoutesListDiv, saveRoutesBtn, routeSearchInput;
+let mapTitleH3;
+let updateFrequencySelect, toggleLiveTrackingCheckbox, toggleRoutePathsCheckbox;
+let saveOptionsBtn;
+
 async function initMap() {
-    console.log(">>> initMap function STARTED!"); // <-- ADD 2
-
-    // Initial map center (adjust as needed)
-    const initialCenter = { lat: -33.48, lng: 151.33 };
+    console.log(">>> initMap: STARTED!");
     try {
+        const initialCenter = { lat: -33.48, lng: 151.33 };
         map = new google.maps.Map(document.getElementById("map"), {
-            zoom: 14,
-            center: initialCenter,
-            mapId: "BUS_MAP_REALTIME" // Optional Map ID
+            zoom: 11, center: initialCenter, mapId: "BUS_MAP_REALTIME"
         });
-        console.log(">>> google.maps.Map object CREATED successfully."); // <-- ADD 3
+        console.log(">>> initMap: Google Maps object CREATED.");
     } catch (mapError) {
-        console.error(">>> ERROR Creating google.maps.Map object:", mapError); // <-- ADD 4
-        return; // Stop if map creation failed
+        console.error(">>> initMap: ERROR Creating Google Maps object:", mapError);
+        return;
     }
 
-    console.log("Map initialized.");
+    initializeDOMElements(); // Call before addEventListeners
+    addEventListeners();     // Call after initializeDOMElements
+    loadStateFromLocalStorage();
 
-    await fetchAndDrawRouteShapes();
-    await fetchAndUpdateMarkers();
-    startAnimationLoop();
-    setInterval(fetchAndUpdateMarkers, 20000); // 20 seconds
+    console.log(">>> initMap: Initial selectedOperatorIds size:", selectedOperatorIds.size);
+    console.log(">>> initMap: Initial selectedRealtimeRouteIds size:", selectedRealtimeRouteIds.size);
+
+    if (selectedOperatorIds.size > 0) {
+        if (btnRoutes) btnRoutes.disabled = false; else console.error(">>> initMap: btnRoutes is null!");
+        if (selectedRealtimeRouteIds.size > 0) {
+            console.log(">>> initMap: Operators and routes selected, calling updateMapData.");
+            await updateMapData();
+        } else {
+            console.log(">>> initMap: Operators loaded, but no routes selected.");
+            updateMapTitle();
+            if (!currentMapOptions.liveTrackingEnabled && dataFetchIntervalId) {
+                clearInterval(dataFetchIntervalId); dataFetchIntervalId = null;
+            }
+        }
+    } else {
+        console.log(">>> initMap: No operators selected on initial load.");
+        updateMapTitle();
+        if (dataFetchIntervalId) {
+            clearInterval(dataFetchIntervalId); dataFetchIntervalId = null;
+        }
+    }
+    console.log(">>> initMap: FINISHED.");
 }
-
-// --- Assign to window explicitly ---
-// This ensures Google Maps API loader finds it after this script is parsed.
-console.log("Assigning initMap to window object."); // <-- ADD 10
 window.initMap = initMap;
 
-async function fetchAndDrawRouteShapes() {
-    console.log("Fetching route shapes from /api/route_shapes...");
+function initializeDOMElements() {
+    console.log("initializeDOMElements: STARTED.");
+    btnOperators = document.getElementById('btn-operators'); console.log("btnOperators:", btnOperators);
+    btnRoutes = document.getElementById('btn-routes'); console.log("btnRoutes:", btnRoutes);
+    btnOptions = document.getElementById('btn-options'); console.log("btnOptions:", btnOptions);
+
+    operatorsModal = document.getElementById('operators-modal'); console.log("operatorsModal:", operatorsModal);
+    routesModal = document.getElementById('routes-modal'); console.log("routesModal:", routesModal);
+    optionsModal = document.getElementById('options-modal'); console.log("optionsModal:", optionsModal);
+
+    closeOperatorsModalBtn = document.getElementById('close-operators-modal'); console.log("closeOperatorsModalBtn:", closeOperatorsModalBtn);
+    closeRoutesModalBtn = document.getElementById('close-routes-modal'); console.log("closeRoutesModalBtn:", closeRoutesModalBtn);
+    closeOptionsModalBtn = document.getElementById('close-options-modal'); console.log("closeOptionsModalBtn:", closeOptionsModalBtn);
+
+    operatorsListDiv = document.getElementById('operators-list'); console.log("operatorsListDiv:", operatorsListDiv);
+    saveOperatorsBtn = document.getElementById('save-operators'); console.log("saveOperatorsBtn:", saveOperatorsBtn);
+
+    selectedRoutesListDiv = document.getElementById('selected-routes-list'); console.log("selectedRoutesListDiv:", selectedRoutesListDiv);
+    availableRoutesListDiv = document.getElementById('available-routes-list'); console.log("availableRoutesListDiv:", availableRoutesListDiv);
+    saveRoutesBtn = document.getElementById('save-routes'); console.log("saveRoutesBtn:", saveRoutesBtn);
+    routeSearchInput = document.getElementById('route-search-input'); console.log("routeSearchInput:", routeSearchInput);
+
+    mapTitleH3 = document.getElementById('map-title'); console.log("mapTitleH3:", mapTitleH3);
+
+    updateFrequencySelect = document.getElementById('update-frequency'); console.log("updateFrequencySelect:", updateFrequencySelect);
+    toggleLiveTrackingCheckbox = document.getElementById('toggle-live-tracking'); console.log("toggleLiveTrackingCheckbox:", toggleLiveTrackingCheckbox);
+    toggleRoutePathsCheckbox = document.getElementById('toggle-route-paths'); console.log("toggleRoutePathsCheckbox:", toggleRoutePathsCheckbox);
+    saveOptionsBtn = document.getElementById('save-options'); console.log("saveOptionsBtn:", saveOptionsBtn);
+
+    console.log("initializeDOMElements: FINISHED.");
+}
+
+function addEventListeners() {
+    console.log("addEventListeners: STARTED.");
+    // Check if elements exist before adding listeners
+    if (btnOperators) btnOperators.addEventListener('click', openOperatorsModal); else console.error("addEventListeners: btnOperators is null!");
+    if (btnRoutes) btnRoutes.addEventListener('click', openRoutesModal); else console.error("addEventListeners: btnRoutes is null!");
+    if (btnOptions) btnOptions.addEventListener('click', openOptionsModal); else console.error("addEventListeners: btnOptions is null!");
+
+    if (closeOperatorsModalBtn) closeOperatorsModalBtn.addEventListener('click', () => { console.log("Close Operators Modal clicked"); operatorsModal.style.display = "none"; }); else console.error("addEventListeners: closeOperatorsModalBtn is null!");
+    if (closeRoutesModalBtn) closeRoutesModalBtn.addEventListener('click', () => { console.log("Close Routes Modal clicked"); routesModal.style.display = "none"; }); else console.error("addEventListeners: closeRoutesModalBtn is null!");
+    if (closeOptionsModalBtn) closeOptionsModalBtn.addEventListener('click', () => { console.log("Close Options Modal clicked"); optionsModal.style.display = "none"; }); else console.error("addEventListeners: closeOptionsModalBtn is null!");
+
+    if (saveOperatorsBtn) saveOperatorsBtn.addEventListener('click', handleSaveOperators); else console.error("addEventListeners: saveOperatorsBtn is null!");
+    if (saveRoutesBtn) saveRoutesBtn.addEventListener('click', handleSaveRoutes); else console.error("addEventListeners: saveRoutesBtn is null!");
+    if (saveOptionsBtn) saveOptionsBtn.addEventListener('click', handleSaveOptions); else console.error("addEventListeners: saveOptionsBtn is null!");
+    
+    if (routeSearchInput) routeSearchInput.addEventListener('input', filterAvailableRoutes); else console.error("addEventListeners: routeSearchInput is null!");
+
+    window.addEventListener('click', (event) => {
+        if (event.target === operatorsModal) { console.log("Window click on Operators Modal background"); operatorsModal.style.display = "none"; }
+        if (event.target === routesModal) { console.log("Window click on Routes Modal background"); routesModal.style.display = "none"; }
+        if (event.target === optionsModal) { console.log("Window click on Options Modal background"); optionsModal.style.display = "none"; }
+    });
+    console.log("addEventListeners: FINISHED.");
+}
+
+function loadStateFromLocalStorage() {
+    console.log("loadStateFromLocalStorage: STARTED");
+    const storedOperatorIds = localStorage.getItem('selectedOperatorIds');
+    console.log("loadStateFromLocalStorage: raw storedOperatorIds:", storedOperatorIds);
+    const storedRouteIds = localStorage.getItem('selectedRealtimeRouteIds');
+    console.log("loadStateFromLocalStorage: raw storedRouteIds:", storedRouteIds);
+    const storedOptions = localStorage.getItem('currentMapOptions');
+    console.log("loadStateFromLocalStorage: raw storedOptions:", storedOptions);
+
+    if (storedOperatorIds) {
+        try {
+            selectedOperatorIds = new Set(JSON.parse(storedOperatorIds));
+        } catch (e) {
+            console.error("loadStateFromLocalStorage: Error parsing storedOperatorIds. Using empty set.", e);
+            selectedOperatorIds = new Set();
+            localStorage.removeItem('selectedOperatorIds'); // Remove corrupted data
+        }
+    }
+
+    if (storedRouteIds) {
+         try {
+            selectedRealtimeRouteIds = new Set(JSON.parse(storedRouteIds));
+        } catch (e) {
+            console.error("loadStateFromLocalStorage: Error parsing storedRouteIds. Using empty set.", e);
+            selectedRealtimeRouteIds = new Set();
+            localStorage.removeItem('selectedRealtimeRouteIds'); // Remove corrupted data
+        }
+    }
+
+    const validRoutesForSelectedOperators = new Set();
+    selectedRealtimeRouteIds.forEach(routeId => {
+        const agencyId = routeId.split('_')[0];
+        if (selectedOperatorIds.has(agencyId)) {
+            validRoutesForSelectedOperators.add(routeId);
+        } else {
+            console.log(`loadStateFromLocalStorage: Removing route ${routeId} as its operator ${agencyId} is not selected.`);
+        }
+    });
+    selectedRealtimeRouteIds = validRoutesForSelectedOperators;
+
+    if (storedOptions) {
+        try {
+            const parsedOptions = JSON.parse(storedOptions);
+            currentMapOptions = { ...currentMapOptions, ...parsedOptions };
+        } catch (e) {
+            console.error("loadStateFromLocalStorage: Error parsing storedOptions. Using defaults.", e);
+            localStorage.removeItem('currentMapOptions'); // Remove corrupted data
+        }
+    }
+    console.log("loadStateFromLocalStorage: FINAL STATE:", { selectedOperatorIds: Array.from(selectedOperatorIds), selectedRealtimeRouteIds: Array.from(selectedRealtimeRouteIds), currentMapOptions });
+    console.log("loadStateFromLocalStorage: FINISHED.");
+}
+
+function saveStateToLocalStorage() {
+    console.log("saveStateToLocalStorage: SAVING. Current state:", { selectedOperatorIds: Array.from(selectedOperatorIds), selectedRealtimeRouteIds: Array.from(selectedRealtimeRouteIds), currentMapOptions });
+    localStorage.setItem('selectedOperatorIds', JSON.stringify(Array.from(selectedOperatorIds)));
+    localStorage.setItem('selectedRealtimeRouteIds', JSON.stringify(Array.from(selectedRealtimeRouteIds)));
+    localStorage.setItem('currentMapOptions', JSON.stringify(currentMapOptions));
+    console.log("saveStateToLocalStorage: FINISHED.");
+}
+
+async function openOperatorsModal() {
+    console.log("openOperatorsModal: CLICKED.");
+    // ... (rest of function is likely okay, but check console for fetch errors)
     try {
-        const response = await fetch('/api/route_shapes');
-         if (!response.ok) {
-            console.error(`Error fetching route shapes: ${response.status} ${response.statusText}`);
-            try { const errorData = await response.json(); console.error("Server error details:", errorData); } catch (e) { /* Ignore */ }
+        const response = await fetch('/api/agencies');
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const agencies = await response.json();
+
+        operatorsListDiv.innerHTML = '';
+        agencies.forEach(agency => {
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = agency.id;
+            checkbox.checked = selectedOperatorIds.has(agency.id);
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(` ${agency.name} (${agency.id})`));
+            operatorsListDiv.appendChild(label);
+        });
+        if (operatorsModal) operatorsModal.style.display = "block"; else console.error("openOperatorsModal: operatorsModal is null!");
+    } catch (error) {
+        console.error("Error fetching or populating agencies:", error);
+        alert("Could not load operator list. Please try again.");
+    }
+}
+
+async function handleSaveOperators() {
+    console.log("handleSaveOperators: CLICKED.");
+    // ... (rest of function)
+    const newSelectedOperatorIds = new Set();
+    if (!operatorsListDiv) { console.error("handleSaveOperators: operatorsListDiv is null!"); return; }
+    operatorsListDiv.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+        newSelectedOperatorIds.add(cb.value);
+    });
+
+    const deselectedOperators = new Set([...selectedOperatorIds].filter(x => !newSelectedOperatorIds.has(x)));
+    selectedOperatorIds = newSelectedOperatorIds;
+    if (operatorsModal) operatorsModal.style.display = "none"; else console.error("handleSaveOperators: operatorsModal is null!");
+
+    if (deselectedOperators.size > 0) {
+        const updatedSelectedRoutes = new Set();
+        selectedRealtimeRouteIds.forEach(routeId => {
+            const agencyId = routeId.split('_')[0];
+            if (!deselectedOperators.has(agencyId)) {
+                updatedSelectedRoutes.add(routeId);
+            }
+        });
+        selectedRealtimeRouteIds = updatedSelectedRoutes;
+    }
+    
+    saveStateToLocalStorage();
+    console.log("Operators selection saved:", Array.from(selectedOperatorIds));
+    if (btnRoutes) btnRoutes.disabled = selectedOperatorIds.size === 0; else console.error("handleSaveOperators: btnRoutes is null!");
+    await updateMapData();
+}
+
+// --- Route Modal Logic ---
+let allFetchedRoutesForCurrentOperators = [];
+
+async function openRoutesModal() {
+    console.log("openRoutesModal: CLICKED.");
+    // ... (rest of function)
+    if (selectedOperatorIds.size === 0) {
+        alert("Please select an operator first.");
+        return;
+    }
+    console.log("Opening Routes Modal for operators:", Array.from(selectedOperatorIds).join(','));
+    if (routeSearchInput) routeSearchInput.value = ''; else console.error("openRoutesModal: routeSearchInput is null!");
+
+    try {
+        const agencyIdsParam = Array.from(selectedOperatorIds).join(',');
+        const response = await fetch(`/api/routes_by_agency?agency_ids=${agencyIdsParam}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        allFetchedRoutesForCurrentOperators = await response.json();
+
+        const tempAssignedColors = {};
+        allFetchedRoutesForCurrentOperators.forEach(route => {
+            if (!assignedRouteColors[route.realtime_id]) {
+                let hash = 0;
+                for (let i = 0; i < route.realtime_id.length; i++) {
+                    hash = route.realtime_id.charCodeAt(i) + ((hash << 5) - hash);
+                    hash = hash & hash;
+                }
+                tempAssignedColors[route.realtime_id] = ROUTE_COLORS[Math.abs(hash) % ROUTE_COLORS.length];
+            } else {
+                tempAssignedColors[route.realtime_id] = assignedRouteColors[route.realtime_id];
+            }
+        });
+        Object.assign(assignedRouteColors, tempAssignedColors);
+
+        populateRoutesModalLists();
+        if (routesModal) routesModal.style.display = "block"; else console.error("openRoutesModal: routesModal is null!");
+    } catch (error) {
+        console.error("Error fetching or populating routes:", error);
+        alert("Could not load route list. Please try again.");
+    }
+}
+
+function populateRoutesModalLists() {
+    console.log("populateRoutesModalLists: STARTED.");
+    if (!selectedRoutesListDiv || !availableRoutesListDiv) {
+        console.error("populateRoutesModalLists: List divs are null!"); return;
+    }
+    selectedRoutesListDiv.innerHTML = '';
+    availableRoutesListDiv.innerHTML = '';
+    const searchTerm = routeSearchInput ? routeSearchInput.value.toLowerCase() : "";
+
+    allFetchedRoutesForCurrentOperators.sort((a, b) => {
+        const aSelected = selectedRealtimeRouteIds.has(a.realtime_id);
+        const bSelected = selectedRealtimeRouteIds.has(b.realtime_id);
+        if (aSelected && !bSelected) return -1;
+        if (!aSelected && bSelected) return 1;
+        const aParts = a.short_name.split('/');
+        const bParts = b.short_name.split('/');
+        const aNum = parseInt(aParts[0], 10);
+        const bNum = parseInt(bParts[0], 10);
+        if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return aNum - bNum;
+        return a.short_name.localeCompare(b.short_name);
+    });
+
+    allFetchedRoutesForCurrentOperators.forEach(route => {
+        const routeDisplayName = `${route.short_name} - ${route.long_name || 'No description'}`;
+        if (searchTerm && !routeDisplayName.toLowerCase().includes(searchTerm) && !route.realtime_id.toLowerCase().includes(searchTerm)) {
             return;
+        }
+
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = route.realtime_id;
+        checkbox.dataset.shortName = route.short_name;
+        checkbox.checked = selectedRealtimeRouteIds.has(route.realtime_id);
+        
+        checkbox.addEventListener('change', (event) => {
+            console.log(`Route checkbox changed: ${event.target.value}, checked: ${event.target.checked}`);
+            if (event.target.checked) {
+                selectedRealtimeRouteIds.add(event.target.value);
+            } else {
+                selectedRealtimeRouteIds.delete(event.target.value);
+            }
+            populateRoutesModalLists(); 
+        });
+
+        const colorDot = document.createElement('span');
+        colorDot.className = 'route-color-dot';
+        colorDot.style.backgroundColor = assignedRouteColors[route.realtime_id] || ROUTE_COLORS[0];
+        
+        label.appendChild(colorDot);
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(` ${routeDisplayName} (Agency: ${route.agency_id})`));
+
+        if (checkbox.checked) {
+            selectedRoutesListDiv.appendChild(label);
+        } else {
+            availableRoutesListDiv.appendChild(label);
+        }
+    });
+    console.log("populateRoutesModalLists: FINISHED.");
+}
+
+function filterAvailableRoutes() {
+    console.log("filterAvailableRoutes: Input changed.");
+    populateRoutesModalLists();
+}
+
+async function handleSaveRoutes() {
+    console.log("handleSaveRoutes: CLICKED.");
+    saveStateToLocalStorage();
+    if (routesModal) routesModal.style.display = "none"; else console.error("handleSaveRoutes: routesModal is null!");
+    console.log("Routes selection saved:", Array.from(selectedRealtimeRouteIds));
+    await updateMapData();
+}
+
+function openOptionsModal() {
+    console.log("openOptionsModal: CLICKED.");
+    if (!updateFrequencySelect || !toggleLiveTrackingCheckbox || !toggleRoutePathsCheckbox) {
+        console.error("openOptionsModal: Option elements are null!"); return;
+    }
+    updateFrequencySelect.value = currentMapOptions.updateIntervalMs.toString();
+    toggleLiveTrackingCheckbox.checked = currentMapOptions.liveTrackingEnabled;
+    toggleRoutePathsCheckbox.checked = currentMapOptions.showRoutePathsEnabled;
+    if (optionsModal) optionsModal.style.display = "block"; else console.error("openOptionsModal: optionsModal is null!");
+}
+
+function handleSaveOptions() {
+    console.log("handleSaveOptions: CLICKED.");
+    if (!updateFrequencySelect || !toggleLiveTrackingCheckbox || !toggleRoutePathsCheckbox) {
+        console.error("handleSaveOptions: Option elements are null!"); return;
+    }
+    const newUpdateInterval = parseInt(updateFrequencySelect.value, 10);
+    const newLiveTracking = toggleLiveTrackingCheckbox.checked;
+    const newShowRoutePaths = toggleRoutePathsCheckbox.checked;
+
+    currentMapOptions.updateIntervalMs = newUpdateInterval;
+    currentMapOptions.liveTrackingEnabled = newLiveTracking;
+    currentMapOptions.showRoutePathsEnabled = newShowRoutePaths;
+
+    saveStateToLocalStorage();
+    if (optionsModal) optionsModal.style.display = "none"; else console.error("handleSaveOptions: optionsModal is null!");
+    console.log("Map options saved:", currentMapOptions);
+    updateMapData();
+}
+
+async function updateMapData() {
+    console.log("updateMapData: STARTED. Current selected routes:", Array.from(selectedRealtimeRouteIds));
+    clearAllMapLayers();
+    updateMapTitle();
+
+    if (selectedRealtimeRouteIds.size === 0) {
+        console.log("updateMapData: No routes selected. Map will be empty.");
+        if (dataFetchIntervalId) {
+            clearInterval(dataFetchIntervalId);
+            dataFetchIntervalId = null;
+            console.log("updateMapData: Cleared data fetch interval (no routes).");
+        }
+        return;
+    }
+
+    const routesParam = Array.from(selectedRealtimeRouteIds).join(',');
+    console.log("updateMapData: routesParam for API:", routesParam);
+
+    if (currentMapOptions.showRoutePathsEnabled) {
+        console.log("updateMapData: Route paths ARE enabled. Fetching shapes.");
+        await fetchAndDrawRouteShapes(routesParam);
+    } else {
+        console.log("updateMapData: Route paths ARE NOT enabled. Skipping shapes.");
+    }
+
+    if (dataFetchIntervalId) {
+        clearInterval(dataFetchIntervalId);
+        dataFetchIntervalId = null;
+        console.log("updateMapData: Cleared existing data fetch interval.");
+    }
+
+    if (currentMapOptions.liveTrackingEnabled) {
+        console.log("updateMapData: Live tracking IS enabled. Fetching markers and starting interval.");
+        await fetchAndUpdateMarkers(routesParam);
+
+        dataFetchIntervalId = setInterval(async () => {
+            if (currentMapOptions.liveTrackingEnabled && selectedRealtimeRouteIds.size > 0) {
+                const currentRoutesParamForInterval = Array.from(selectedRealtimeRouteIds).join(',');
+                // console.log("Interval Tick: Fetching markers for", currentRoutesParamForInterval); // Can be very noisy
+                await fetchAndUpdateMarkers(currentRoutesParamForInterval);
+            } else {
+                if (dataFetchIntervalId) {
+                    clearInterval(dataFetchIntervalId);
+                    dataFetchIntervalId = null;
+                    console.log("Interval Tick: Tracking disabled or no routes. Interval STOPPED from within.");
+                }
+            }
+        }, currentMapOptions.updateIntervalMs);
+        console.log(`updateMapData: Live tracking interval (re)started for ${currentMapOptions.updateIntervalMs / 1000}s.`);
+    } else {
+        console.log("updateMapData: Live tracking IS NOT enabled. Fetching markers once.");
+        await fetchAndUpdateMarkers(routesParam);
+    }
+    console.log("updateMapData: FINISHED.");
+}
+
+function updateMapTitle() {
+    // console.log("updateMapTitle: Updating...");
+    if (!mapTitleH3) { console.error("updateMapTitle: mapTitleH3 is null!"); return; }
+    if (selectedOperatorIds.size === 0) {
+        mapTitleH3.textContent = 'No operator selected';
+        return;
+    }
+    let title = `Tracking routes: `;
+    if (selectedRealtimeRouteIds.size === 0) {
+        title += "None selected";
+    } else {
+        const shortNames = Array.from(selectedRealtimeRouteIds).map(rtId => {
+            const parts = rtId.split('_');
+            return parts.length > 1 ? parts[parts.length - 1] : rtId;
+        }).sort((a, b) => {
+            const numA = parseInt(a.match(/\d+/)?.[0]);
+            const numB = parseInt(b.match(/\d+/)?.[0]);
+            if (!isNaN(numA) && !isNaN(numB) && numA !== numB) return numA - numB;
+            return a.localeCompare(b);
+        });
+        title += shortNames.join(', ');
+    }
+    mapTitleH3.textContent = title;
+}
+
+function clearAllMapLayers() {
+    console.log("clearAllMapLayers: STARTED.");
+    for (const routeId in routePolylines) {
+        if (routePolylines.hasOwnProperty(routeId)) {
+            routePolylines[routeId].forEach(polyline => polyline.setMap(null));
+        }
+    }
+    routePolylines = {};
+
+    for (const vehicleId in busMarkerObjects) {
+        if (busMarkerObjects.hasOwnProperty(vehicleId)) {
+            if (busMarkerObjects[vehicleId].gmapMarker) {
+                busMarkerObjects[vehicleId].gmapMarker.map = null;
+            }
+        }
+    }
+    busMarkerObjects = {};
+
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+    console.log("clearAllMapLayers: FINISHED. Polylines and markers cleared.");
+}
+
+async function fetchAndDrawRouteShapes(routesParam) {
+    // console.log("fetchAndDrawRouteShapes: Fetching for routes:", routesParam);
+    if (!routesParam) return;
+    try {
+        const response = await fetch(`/api/route_shapes?routes=${routesParam}`);
+        if (!response.ok) {
+            console.error(`fetchAndDrawRouteShapes: HTTP error ${response.status}`); return;
         }
         const shapesData = await response.json();
-
-        if (Object.keys(shapesData).length === 0) {
-            console.log("Received empty shape data. No route paths drawn.");
-            return;
-        }
-        console.log(`Received shape data for ${Object.keys(shapesData).length} routes.`);
-        clearPolylines();
-
-        const routeColors = ['#FF5733', '#3375FF', '#33FF57', '#FFC300', '#C70039', '#900C3F', '#581845'];
-        let colorIndex = 0;
+        if (Object.keys(shapesData).length === 0) { /* console.log("fetchAndDrawRouteShapes: No shape data received."); */ return; }
+        // console.log(`fetchAndDrawRouteShapes: Received shape data for ${Object.keys(shapesData).length} routes.`);
 
         for (const routeId in shapesData) {
             if (!shapesData.hasOwnProperty(routeId)) continue;
             const shapes = shapesData[routeId];
             if (!Array.isArray(shapes)) continue;
 
-            const color = routeColors[colorIndex % routeColors.length];
-            routePolylines[routeId] = [];
+            let colorForPolyline = assignedRouteColors[routeId];
+            if (!colorForPolyline) {
+                let hash = 0;
+                for (let i = 0; i < routeId.length; i++) { hash = routeId.charCodeAt(i) + ((hash << 5) - hash); hash = hash & hash; }
+                colorForPolyline = ROUTE_COLORS[Math.abs(hash) % ROUTE_COLORS.length];
+                assignedRouteColors[routeId] = colorForPolyline;
+            }
+            
+            if (!routePolylines[routeId]) routePolylines[routeId] = [];
 
-            shapes.forEach((pathPoints, index) => {
+            shapes.forEach((pathPoints) => {
                 if (!Array.isArray(pathPoints) || pathPoints.length < 2) return;
                 const validPathPoints = pathPoints.filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number');
                 if (validPathPoints.length < 2) return;
-
                 try {
                     const polyline = new google.maps.Polyline({
-                        path: validPathPoints, geodesic: true, strokeColor: color,
-                        strokeOpacity: 0.65, strokeWeight: 5, zIndex: 1
+                        path: validPathPoints, geodesic: true, strokeColor: colorForPolyline,
+                        strokeOpacity: 0.45, strokeWeight: 5, zIndex: 1
                     });
                     polyline.setMap(map);
                     routePolylines[routeId].push(polyline);
-                } catch (e) { console.error(`Error creating polyline for route ${routeId}, shape ${index + 1}:`, e); }
+                } catch (e) { console.error(`fetchAndDrawRouteShapes: Error creating polyline for ${routeId}`, e); }
             });
-            colorIndex++;
         }
-         console.log("Finished drawing route polylines.");
-    } catch (error) { console.error("Error fetching or drawing route shapes:", error); }
+    } catch (error) { console.error("fetchAndDrawRouteShapes: General error:", error); }
+    // console.log("fetchAndDrawRouteShapes: FINISHED.");
 }
-async function fetchAndUpdateMarkers() {
-    // console.log("Fetching bus data from API..."); // Less noise
-    try {
-        const response = await fetch('/api/bus_data'); // Assuming this API now fetches ALL data and JS will filter later OR it accepts params
-        if (!response.ok) {
-            console.error(`Error fetching bus data: ${response.status} ${response.statusText}`);
-            const errorData = await response.json().catch(() => ({}));
-            console.error("Server error details for bus data:", errorData);
-            return;
-        }
-        const busData = await response.json();
-        // console.log(`Received ${busData.length} bus updates.`); // Less noise
 
+async function fetchAndUpdateMarkers(routesParam) {
+    // console.log("fetchAndUpdateMarkers: Fetching for routes:", routesParam);
+    if (!routesParam) return;
+    try {
+        const response = await fetch(`/api/bus_data?routes=${routesParam}`);
+        if (!response.ok) { console.error(`fetchAndUpdateMarkers: HTTP error ${response.status}`); return; }
+        const busData = await response.json();
         const updatedVehicleIds = new Set();
 
         busData.forEach(bus => {
             const vehicleId = bus.vehicle_id;
-            if (!vehicleId || vehicleId === 'N/A') return;
-            if (typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') return;
-
+            if (!vehicleId || vehicleId === 'N/A' || typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') return;
             updatedVehicleIds.add(vehicleId);
+
             const newPosition = { lat: bus.latitude, lng: bus.longitude };
             const bearing = Number(bus.bearing) ?? 0;
             const routeId = bus.route_id || 'N/A';
@@ -114,168 +566,111 @@ async function fetchAndUpdateMarkers() {
             const speedDisplay = bus.speed || 'N/A';
             const timeDisplay = formatTimestamp(bus.raw_timestamp);
 
+            let arrowStrokeColor = 'red';
+            if (assignedRouteColors[routeId]) {
+                arrowStrokeColor = assignedRouteColors[routeId];
+            } else if (routeId !== 'N/A') {
+                let hash = 0;
+                for (let i = 0; i < routeId.length; i++) { hash = routeId.charCodeAt(i) + ((hash << 5) - hash); hash = hash & hash;}
+                arrowStrokeColor = ROUTE_COLORS[Math.abs(hash) % ROUTE_COLORS.length];
+                assignedRouteColors[routeId] = arrowStrokeColor;
+            }
+
             const currentInfoContent = `
                 <div style="font-family: sans-serif; font-size: 12px; line-height: 1.4;">
-                    <strong>Route:</strong> ${routeId}<br>
-                    <strong>Vehicle:</strong> ${vehicleId}<br>
-                    <strong>Speed:</strong> ${speedDisplay}<br>
+                    <strong>Route:</strong> <span style="color:${arrowStrokeColor}; font-weight:bold;">${routeId}</span><br>
+                    <strong>Vehicle:</strong> ${vehicleId}<br><strong>Speed:</strong> ${speedDisplay}<br>
                     <strong>Last Update:</strong> ${timeDisplay}<br>
                     <strong>Coords:</strong> ${bus.latitude.toFixed(5)}, ${bus.longitude.toFixed(5)}
                 </div>`;
-
+            
             const iconSize = 40; const circleRadius = 12; const center = iconSize / 2;
             const pointerHeight = 12; const pointerWidth = 15;
             const fontSize = routeShortName.length > 2 ? 11 : 15;
-            const arrowOffset = 10; // This is the new offset.  Adjust this value!
+            const arrowOffset = 10;
 
             const svgContent = `
                 <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 ${iconSize} ${iconSize}" xmlns="http://www.w3.org/2000/svg">
                   <g transform="rotate(${bearing}, ${center}, ${center})">
                     <circle cx="${center}" cy="${center}" r="${circleRadius}" fill="black" stroke="white" stroke-width="1.5"/>
-                    <polygon points=
-                        "${center}, ${center - circleRadius + 1 - arrowOffset}
-                        ${center - pointerWidth / 2}, ${center - circleRadius + pointerHeight - arrowOffset}
-                        ${center + pointerWidth / 2}, ${center - circleRadius + pointerHeight + 1 - arrowOffset}"                         
-                         fill="black" stroke="red" stroke-width="1.5" />
+                    <polygon points="${center},${center - circleRadius + 1 - arrowOffset} ${center - pointerWidth / 2},${center - circleRadius + pointerHeight - arrowOffset} ${center + pointerWidth / 2},${center - circleRadius + pointerHeight + 1 - arrowOffset}" 
+                             fill="black" stroke="${arrowStrokeColor}" stroke-width="1.5" />
                     <text x="${center}" y="${center + 1}" fill="white" font-size="${fontSize}" font-weight="bold" font-family="Arial, sans-serif" text-anchor="middle" dominant-baseline="middle" transform="rotate(${-bearing}, ${center}, ${center})">${routeShortName}</text>
                   </g>
                 </svg>`;
 
-
-            // "${center}, ${center - circleRadius + 1} 
-            // ${center - pointerWidth / 2}, ${center - circleRadius + pointerHeight} 
-            // ${center + pointerWidth / 2}, ${center - circleRadius + pointerHeight +1}" 
-
-            // const iconSize = 40;
-            // const circleRadius = 18;
-            // const center = iconSize / 2;
-            // const pointerHeight = 10; // Adjusted for more pronounced arrow
-            // const pointerWidth = 10;
-            // const fontSize = routeShortName.length > 2 ? 11 : 15;
-            // const pointerOffset = 3; // Offset to push the pointer outside the circle
-
-            // const svgContent = `
-            //     <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 ${iconSize} ${iconSize}" xmlns="http://www.w3.org/2000/svg">
-            //         <g transform="rotate(${bearing}, ${center}, ${center})">
-            //             <circle cx="${center}" cy="${center}" r="${circleRadius}" fill="black" stroke="white" stroke-width="1.5"/>
-            //             <polygon points="${center},${center - circleRadius - pointerOffset} 
-            //                              ${center - pointerWidth / 2}, ${center - circleRadius - pointerOffset - pointerHeight} 
-            //                              ${center + pointerWidth / 2}, ${center - circleRadius - pointerOffset - pointerHeight}" 
-            //             fill="black"
-            //             stroke="white"
-            //             stroke-width="1"
-            //             />
-            //             <text x="${center}" y="${center + 1}" fill="white" font-size="${fontSize}" font-weight="bold" font-family="Arial, sans-serif" text-anchor="middle" dominant-baseline="middle" transform="rotate(${-bearing}, ${center}, ${center})">${routeShortName}</text>
-            //         </g>
-            //     </svg>`;
-
             if (busMarkerObjects[vehicleId]) {
-                // --- Marker EXISTS ---
-                const markerData = busMarkerObjects[vehicleId];
-                markerData.gmapMarker.title = `Route: ${routeId}\nVehicle: ${vehicleId}\nSpeed: ${speedDisplay}\nTime: ${timeDisplay}`;
-                if (markerData.infowindow) markerData.infowindow.setContent(currentInfoContent);
-                if (markerData.gmapMarker.content instanceof HTMLElement) markerData.gmapMarker.content.innerHTML = svgContent;
-
-                const currentPosition = markerData.gmapMarker.position;
-                const latDiff = Math.abs((currentPosition?.lat || 0) - newPosition.lat);
-                const lngDiff = Math.abs((currentPosition?.lng || 0) - newPosition.lng);
-
-                if (currentPosition && (latDiff > 0.000001 || lngDiff > 0.000001)) {
-                    if (!markerData.isAnimating || markerData.targetPos?.lat !== newPosition.lat || markerData.targetPos?.lng !== newPosition.lng) {
-                        markerData.startPos = markerData.gmapMarker.position;
-                        markerData.targetPos = newPosition;
-                        markerData.startTime = performance.now();
-                        markerData.isAnimating = true;
+                const md = busMarkerObjects[vehicleId];
+                md.gmapMarker.title = `Route: ${routeId}\nVehicle: ${vehicleId}\nSpeed: ${speedDisplay}\nTime: ${timeDisplay}`;
+                if (md.infowindow) md.infowindow.setContent(currentInfoContent);
+                if (md.gmapMarker.content instanceof HTMLElement) md.gmapMarker.content.innerHTML = svgContent;
+                else { const el = document.createElement('div'); el.innerHTML = svgContent; el.style.cursor = 'pointer'; md.gmapMarker.content = el; }
+                
+                const cp = md.gmapMarker.position;
+                if (cp && (Math.abs((cp.lat || 0) - newPosition.lat) > 1e-6 || Math.abs((cp.lng || 0) - newPosition.lng) > 1e-6)) {
+                    if (!md.isAnimating || md.targetPos?.lat !== newPosition.lat || md.targetPos?.lng !== newPosition.lng) {
+                        md.startPos = md.gmapMarker.position; md.targetPos = newPosition;
+                        md.startTime = performance.now(); md.isAnimating = true;
                     }
-                } else if (!markerData.isAnimating) {
-                    markerData.gmapMarker.position = newPosition;
-                    markerData.startPos = null;
-                }
+                } else if (!md.isAnimating) { md.gmapMarker.position = newPosition; md.startPos = null; }
             } else {
-                // --- Marker is NEW ---
-                const markerElement = document.createElement('div');
-                markerElement.innerHTML = svgContent;
-                markerElement.style.cursor = 'pointer';
-
-                const gmapMarker = new google.maps.marker.AdvancedMarkerElement({
-                    map: map, position: newPosition, content: markerElement,
-                    title: `Route: ${routeId}\nVehicle: ${vehicleId}\nSpeed: ${speedDisplay}\nTime: ${timeDisplay}`,
-                    zIndex: 100
-                });
-                const infowindow = new google.maps.InfoWindow({ content: currentInfoContent, ariaLabel: `Bus ${vehicleId}` });
-                gmapMarker.addListener("click", () => infowindow.open({ anchor: gmapMarker, map }));
-
-                busMarkerObjects[vehicleId] = {
-                    gmapMarker: gmapMarker, infowindow: infowindow, isAnimating: false,
-                    startPos: null, targetPos: newPosition, startTime: 0
-                };
+                const el = document.createElement('div'); el.innerHTML = svgContent; el.style.cursor = 'pointer';
+                const gm = new google.maps.marker.AdvancedMarkerElement({ map, position: newPosition, content: el, title: `R: ${routeId} V: ${vehicleId}`, zIndex: 100 });
+                const iw = new google.maps.InfoWindow({ content: currentInfoContent, ariaLabel: `Bus ${vehicleId}` });
+                gm.addListener("click", () => iw.open({ anchor: gm, map }));
+                busMarkerObjects[vehicleId] = { gmapMarker: gm, infowindow: iw, isAnimating: false, startPos: null, targetPos: newPosition, startTime: 0 };
             }
-        }); // End busData.forEach
+        });
 
-        // --- Remove stale markers ---
-        for (const vehicleId in busMarkerObjects) {
-            if (!updatedVehicleIds.has(vehicleId)) {
-                busMarkerObjects[vehicleId].gmapMarker.map = null;
-                delete busMarkerObjects[vehicleId];
+        for (const vid in busMarkerObjects) {
+            if (!updatedVehicleIds.has(vid)) {
+                if (busMarkerObjects[vid].gmapMarker) busMarkerObjects[vid].gmapMarker.map = null;
+                delete busMarkerObjects[vid];
             }
         }
         startAnimationLoop();
-        // console.log(`Tracking ${Object.keys(busMarkerObjects).length} bus markers.`); // Less noise
+    } catch (error) { console.error("fetchAndUpdateMarkers: General error:", error); }
+    // console.log("fetchAndUpdateMarkers: FINISHED.");
+}
 
-    } catch (error) { console.error("Error in fetchAndUpdateMarkers:", error); }
-} // <-- End of fetchAndUpdateMarkers function
 function animateMarkers(timestamp) {
     let stillAnimating = false;
     for (const vehicleId in busMarkerObjects) {
         if (!busMarkerObjects.hasOwnProperty(vehicleId)) continue;
-        const markerData = busMarkerObjects[vehicleId];
-
-        if (markerData.isAnimating) {
-            const elapsedTime = timestamp - markerData.startTime;
+        const md = busMarkerObjects[vehicleId];
+        if (md.isAnimating) {
+            const elapsedTime = timestamp - md.startTime;
             const fraction = animationDuration > 0 ? Math.min(1, elapsedTime / animationDuration) : 1;
-
-            if (markerData.startPos && markerData.targetPos) {
-                const lat = markerData.startPos.lat + (markerData.targetPos.lat - markerData.startPos.lat) * fraction;
-                const lng = markerData.startPos.lng + (markerData.targetPos.lng - markerData.startPos.lng) * fraction;
-                markerData.gmapMarker.position = { lat, lng };
-            } else { markerData.isAnimating = false; }
-
-            if (fraction < 1) {
-                stillAnimating = true;
-            } else {
-                markerData.isAnimating = false;
-                if (markerData.targetPos) markerData.gmapMarker.position = markerData.targetPos;
-                markerData.startPos = null;
-            }
+            if (md.startPos && md.targetPos) {
+                const lat = md.startPos.lat + (md.targetPos.lat - md.startPos.lat) * fraction;
+                const lng = md.startPos.lng + (md.targetPos.lng - md.startPos.lng) * fraction;
+                md.gmapMarker.position = { lat, lng };
+            } else { md.isAnimating = false; }
+            if (fraction < 1) stillAnimating = true;
+            else { md.isAnimating = false; if (md.targetPos) md.gmapMarker.position = md.targetPos; md.startPos = null; }
         }
-    } // End for loop
-
-    if (stillAnimating) { animationFrameId = requestAnimationFrame(animateMarkers); }
-    else { animationFrameId = null; }
+    }
+    if (stillAnimating) animationFrameId = requestAnimationFrame(animateMarkers);
+    else animationFrameId = null;
 }
+
 function startAnimationLoop() {
     if (animationFrameId === null) {
          let needsAnimation = false;
-         for (const vehicleId in busMarkerObjects) { if (busMarkerObjects[vehicleId].isAnimating) { needsAnimation = true; break; } }
-         if (needsAnimation) { animationFrameId = requestAnimationFrame(animateMarkers); }
+         for (const vid in busMarkerObjects) { if (busMarkerObjects[vid].isAnimating) { needsAnimation = true; break; }}
+         if (needsAnimation) animationFrameId = requestAnimationFrame(animateMarkers);
     }
 }
- function clearPolylines() {
-     for (const routeId in routePolylines) { routePolylines[routeId].forEach(polyline => polyline.setMap(null)); }
-     routePolylines = {};
- }
+
 function formatTimestamp(unixTimestamp) {
-    if (unixTimestamp === null || typeof unixTimestamp === 'undefined') return 'No Timestamp';
+    if (unixTimestamp === null || typeof unixTimestamp === 'undefined') return 'No TS';
     try {
-        const timestampMs = Number(unixTimestamp) * 1000;
-        if (isNaN(timestampMs)) return 'Invalid Time Data';
-        const date = new Date(timestampMs);
-        if (isNaN(date.getTime())) return 'Invalid Date';
+        const tsMs = Number(unixTimestamp) * 1000;
+        if (isNaN(tsMs)) return 'Inv TS Data';
+        const date = new Date(tsMs);
+        if (isNaN(date.getTime())) return 'Inv Date';
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    } catch (e) { console.error("Error formatting timestamp:", unixTimestamp, e); return 'Time Format Error'; }
+    } catch (e) { console.error("formatTimestamp Error:", unixTimestamp, e); return 'TS Fmt Err'; }
 }
 
-// Note: Any functions or variables that NEEDED data directly from Jinja2 templating
-// would require adjustment (e.g., passing data via inline script or data attributes).
-// In this case, the Google Maps API key is handled in its script URL, and the
-// dynamic route display string is handled by Jinja2 directly in the h3 tag.
+console.log("map_logic.js script FINISHED PARSING.");
