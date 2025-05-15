@@ -6,12 +6,14 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <!-- NEW: Menu Bar -->
-    <div id="menu-bar">
-        <button id="btn-operators">Operators</button>
-        <button id="btn-routes" disabled>Routes</button> 
-        <button id="btn-options">Options</button>
-        <h3 id="map-title">Realtime Bus Positions</h3> 
+    <div class="head-container">
+        <div id="small-timer">{{ remaining_time }}</div>
+        <div id="menu-bar">
+            <button id="btn-operators">Operators</button>
+            <button id="btn-routes" disabled>Routes</button> 
+            <button id="btn-options">Options</button>
+            <h3 id="map-title">Realtime Bus Positions</h3> 
+        </div>
     </div>
 
     <!-- Map Container -->
