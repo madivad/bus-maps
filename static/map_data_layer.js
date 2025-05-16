@@ -2,7 +2,7 @@
 console.log("map_data_layer.js: PARSING.");
 
 import * as G from './map_globals.js';
-import { startAnimationLoop, formatTimestamp } from './map_init.js'; // formatTimestamp is here now
+import { startAnimationLoop, formatTimestamp } from './map_init.js';
 
 export async function updateMapData() {
     console.log("updateMapData: STARTED. Current selected routes (G.selectedRealtimeRouteIds):", Array.from(G.selectedRealtimeRouteIds));
@@ -50,7 +50,6 @@ export async function updateMapData() {
         G.setDataFetchIntervalId(setInterval(async () => {
             if (G.currentMapOptions.liveTrackingEnabled && G.selectedRealtimeRouteIds.size > 0) {
                 const currentRoutesParamForInterval = Array.from(G.selectedRealtimeRouteIds).join(',');
-                // console.log("Interval Tick: Fetching markers for", currentRoutesParamForInterval); // Can be noisy
                 await fetchAndUpdateMarkers(currentRoutesParamForInterval);
             } else {
                 if (G.dataFetchIntervalId) { // If tracking disabled or no routes during an interval cycle
@@ -275,12 +274,11 @@ export async function fetchAndUpdateMarkers(routesParam) {
                     </g>
                 </svg>`;
 
-            if (newBusMarkerObjects[vehicleId]) { // Marker exists, update it
+            if (newBusMarkerObjects[vehicleId]) {
                 const md = newBusMarkerObjects[vehicleId];
                 md.gmapMarker.title = `Route: ${routeId}\nVehicle: ${vehicleId}\nSpeed: ${speedDisplay}\nTime: ${timeDisplay}`;
                 if (md.infowindow) md.infowindow.setContent(currentInfoContent);
                 
-                // Update content for AdvancedMarkerElement
                 if (md.gmapMarker.content instanceof HTMLElement) {
                     md.gmapMarker.content.innerHTML = svgContent;
                 } else { // If content was not an element, make it one
@@ -291,13 +289,31 @@ export async function fetchAndUpdateMarkers(routesParam) {
                 }
                 
                 const currentMarkerPosition = md.gmapMarker.position; // AdvancedMarkerElement has a position property
+                // --- START DEBUG LOGS ---
+                console.log(`Vehicle ID: ${vehicleId}`);
+                console.log(`  Current Marker Pos: lat=${currentMarkerPosition?.lat}, lng=${currentMarkerPosition?.lng}`);
+                console.log(`  New API Pos: lat=${newPosition.lat}, lng=${newPosition.lng}`);
+                // --- END DEBUG LOGS ---
+
                 if (currentMarkerPosition && (Math.abs(currentMarkerPosition.lat - newPosition.lat) > 1e-6 || Math.abs(currentMarkerPosition.lng - newPosition.lng) > 1e-6)) {
+                    // --- MORE DEBUG LOGS ---
+                    console.log(`  FOR ${vehicleId}: Position HAS changed.`);
+                    console.log(`    md.isAnimating BEFORE check: ${md.isAnimating}`);
+                    console.log(`    md.targetPos BEFORE check: lat=${md.targetPos?.lat}, lng=${md.targetPos?.lng}`);
+                    // --- END MORE DEBUG LOGS ---
                     if (!md.isAnimating || md.targetPos?.lat !== newPosition.lat || md.targetPos?.lng !== newPosition.lng) {
+                        // --- EVEN MORE DEBUG LOGS ---
+                        console.log(`    FOR ${vehicleId}: Condition to START/RESET animation MET.`);
+                        // --- END EVEN MORE DEBUG LOGS ---
                         md.startPos = { lat: currentMarkerPosition.lat, lng: currentMarkerPosition.lng };
                         md.targetPos = newPosition;
                         md.startTime = performance.now();
-                        md.isAnimating = true;
+                        md.isAnimating = true; 
+                        // --- FINAL DEBUG LOG ---
+                        console.log(`    FOR ${vehicleId}: md.isAnimating is NOW: ${md.isAnimating}`);
+                        // --- END FINAL DEBUG LOG ---
                     }
+
                 } else if (!md.isAnimating) { // Snap to position if not animating and very close or same
                     md.gmapMarker.position = newPosition;
                     md.startPos = null; // No longer need startPos if snapped
@@ -318,9 +334,15 @@ export async function fetchAndUpdateMarkers(routesParam) {
                     content: currentInfoContent,
                     ariaLabel: `Bus ${vehicleId}`
                 });
-                newMarker.addListener("click", () => {
-                    infowindow.open({ anchor: newMarker, map: G.map });
+                // In fetchAndUpdateMarkers, when creating a NEW marker:
+                newMarker.addEventListener('gmp-click', () => { // Changed to 'gmp-click'
+                    const currentMarkerData = G.busMarkerObjects[vehicleId]; 
+                    if (currentMarkerData && currentMarkerData.infowindow) {
+                        currentMarkerData.infowindow.open({ anchor: currentMarkerData.gmapMarker, map: G.map });
+                    }
+                    handleRouteInteraction(routeId); 
                 });
+
                 newBusMarkerObjects[vehicleId] = {
                     gmapMarker: newMarker,
                     infowindow: infowindow,

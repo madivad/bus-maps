@@ -28,8 +28,6 @@ def fetch_and_filter_bus_positions(api_url, api_key, target_routes):
         "Authorization": f"apikey {api_key}"
     }
 
-    print(f"Fetching data from {api_url}...")
-
     response = None # Initialize response to None
     try:
         response = requests.get(api_url, headers=headers, timeout=30) # 30 second timeout

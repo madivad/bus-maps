@@ -220,64 +220,81 @@ function resetCountdown() {
 
 // --- Marker Animation ---
 function animateMarkers(timestamp) {
-    let stillAnimating = false;
+    // console.log(`animateMarkers: ENTERED. Timestamp: ${timestamp.toFixed(2)}`); // Keep this minimal for now
+    let anyMarkerIsStillAnimatingThisFrame = false; // Flag for this specific frame
+    const animationDuration = G.currentMapOptions.updateIntervalMs * G.ANIMATION_DURATION_FACTOR;
+
     for (const vehicleId in G.busMarkerObjects) {
         if (!G.busMarkerObjects.hasOwnProperty(vehicleId)) continue;
         const md = G.busMarkerObjects[vehicleId];
-        if (md.isAnimating) {
+
+        if (md.isAnimating) { // Only consider markers that are *supposed* to be animating
             const elapsedTime = timestamp - md.startTime;
-            const fraction = animationDuration > 0 ? Math.min(1, elapsedTime / animationDuration) : 1;
-            
+            let fraction = (animationDuration > 0) ? (elapsedTime / animationDuration) : 1.0;
+            fraction = Math.max(0, Math.min(1, fraction)); // Clamp fraction
+
+            // Optional detailed log for debugging a specific troublesome marker if needed:
+            // if (vehicleId === " проблемный_id_маркера ") {
+            //    console.log(`  Veh ${vehicleId}: elapsed=${elapsedTime.toFixed(0)}, fraction=${fraction.toFixed(3)}, startT=${md.startTime.toFixed(0)}`);
+            // }
+
             if (md.startPos && md.targetPos) {
                 const lat = md.startPos.lat + (md.targetPos.lat - md.startPos.lat) * fraction;
                 const lng = md.startPos.lng + (md.targetPos.lng - md.startPos.lng) * fraction;
-                if (md.gmapMarker && typeof md.gmapMarker.setPosition === 'function') { // Check if setPosition exists
-                     md.gmapMarker.position = { lat, lng }; // For AdvancedMarkerElement
-                } else if (md.gmapMarker && md.gmapMarker.internalPosition) { // Fallback or older marker type
-                     md.gmapMarker.internalPosition = new google.maps.LatLng(lat, lng);
-                } else {
-                    // console.warn("Cannot set position for marker:", vehicleId, md.gmapMarker);
+                
+                if (md.gmapMarker && typeof md.gmapMarker.position === 'object') { 
+                    md.gmapMarker.position = { lat, lng }; 
                 }
             } else {
-                md.isAnimating = false; // Stop if positions are not valid
+                // This marker was told to animate but lacks start/target. Stop its animation.
+                // console.warn(`  animateMarkers: Vehicle ${vehicleId} isAnimating but missing startPos or targetPos. Halting its animation.`);
+                md.isAnimating = false;
             }
 
-            if (fraction < 1) {
-                stillAnimating = true;
+            // Update md.isAnimating status for the *next* frame check
+            if (fraction < 1.0) {
+                anyMarkerIsStillAnimatingThisFrame = true; // If this marker isn't done, the overall loop needs to continue
             } else {
-                md.isAnimating = false;
-                if (md.targetPos && md.gmapMarker) {
-                    if (typeof md.gmapMarker.setPosition === 'function') {
-                        md.gmapMarker.position = md.targetPos;
-                    } else if (md.gmapMarker.internalPosition) {
-                        md.gmapMarker.internalPosition = new google.maps.LatLng(md.targetPos.lat, md.targetPos.lng);
-                    }
-                }
-                md.startPos = null; // Clear start position after animation
+                md.isAnimating = false; // This marker has completed its current segment
+                // console.log(`  animateMarkers: Vehicle ${vehicleId} finished segment. isAnimating = false.`);
+                // Position is already snapped by fraction being 1.0
             }
         }
-    }
-    if (stillAnimating) {
+    } // End of for...in loop over busMarkerObjects
+
+    // Decision to continue the animation loop
+    if (anyMarkerIsStillAnimatingThisFrame) {
         G.setAnimationFrameId(requestAnimationFrame(animateMarkers));
     } else {
-        G.setAnimationFrameId(null);
+        G.setAnimationFrameId(null); // CRITICAL: Stop the loop if no markers were animating in this frame
+        console.log("animateMarkers: Loop stopped (ALL active animations for this cycle completed OR no markers were animating). G.animationFrameId set to null.");
     }
 }
 
-export function startAnimationLoop() { // Export if needed by other modules, e.g. map_data_layer
+export function startAnimationLoop() {
+    console.log("startAnimationLoop: CALLED. G.animationFrameId is:", G.animationFrameId);
     if (G.animationFrameId === null) {
+        console.log("startAnimationLoop: G.animationFrameId is null, checking if animation is needed.");
         let needsAnimation = false;
         for (const vid in G.busMarkerObjects) {
-            if (G.busMarkerObjects[vid].isAnimating) {
+            // Check hasOwnProperty on the object itself, not the key
+            if (G.busMarkerObjects.hasOwnProperty(vid) && G.busMarkerObjects[vid].isAnimating) {
+                // console.log(`startAnimationLoop: Vehicle ${vid} IS animating. Setting needsAnimation = true.`);
                 needsAnimation = true;
                 break;
             }
         }
         if (needsAnimation) {
+            console.log("startAnimationLoop: Animation NEEDED, calling requestAnimationFrame(animateMarkers)."); // Corrected log
             G.setAnimationFrameId(requestAnimationFrame(animateMarkers));
+        } else {
+            console.log("startAnimationLoop: No animation needed currently (no vehicles have isAnimating=true or G.busMarkerObjects is empty).");
         }
+    } else {
+        console.log("startAnimationLoop: G.animationFrameId is NOT null, loop presumed running.");
     }
 }
+
 
 // --- Utility Functions ---
 export function formatTimestamp(unixTimestamp) { // Export if needed

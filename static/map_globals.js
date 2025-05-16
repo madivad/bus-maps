@@ -52,6 +52,7 @@ export let currentlyHighlightedRouteId = null;
 export function setCurrentlyHighlightedRouteId(routeId) { currentlyHighlightedRouteId = routeId; }
 
 // --- Countdown Timer Variables ---
+export const ANIMATION_DURATION_FACTOR = 0.9; // Animate for 90% of the update interval
 export const JS_DATA_REFRESH_INTERVAL_SECONDS = 10;
 export const FETCH_API_AT_COUNT = 1; // Fetch when countdown reaches this value
 export let countdownValue = JS_DATA_REFRESH_INTERVAL_SECONDS;
