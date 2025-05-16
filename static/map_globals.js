@@ -52,12 +52,19 @@ export let currentlyHighlightedRouteId = null;
 export function setCurrentlyHighlightedRouteId(routeId) { currentlyHighlightedRouteId = routeId; }
 
 // --- Countdown Timer Variables ---
-export const ANIMATION_DURATION_FACTOR = 0.9; // Animate for 90% of the update interval
+export const ANIMATION_DURATION_FACTOR = 0.5; // Animate for 90% of the update interval
 export const JS_DATA_REFRESH_INTERVAL_SECONDS = 10;
 export const FETCH_API_AT_COUNT = 1; // Fetch when countdown reaches this value
 export let countdownValue = JS_DATA_REFRESH_INTERVAL_SECONDS;
 export let countdownIntervalId = null;
 export let isFetchingApiData = false; // Flag to prevent concurrent early fetches
+
+// --- InfoWindow Management ---
+export let currentlyOpenInfoWindow = null;
+export function setCurrentlyOpenInfoWindow(iw) { 
+    // console.log("Setting currentlyOpenInfoWindow to:", iw); // Optional debug
+    currentlyOpenInfoWindow = iw; 
+}
 
 // --- Functions to update exported let variables (since direct import assignment is not allowed for `let`) ---
 // For simple types or re-assignable objects

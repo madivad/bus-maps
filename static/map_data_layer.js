@@ -200,7 +200,7 @@ async function fetchAndDrawRouteShapes(routesParam) {
                     const currentRouteIdForListener = routeId; // Capture routeId for the listener
                     polyline.addListener('click', () => {
                         console.log(`Polyline for route ${currentRouteIdForListener} clicked.`);
-                        handleRouteInteraction(currentRouteIdForListener);
+                        //handleRouteInteraction(currentRouteIdForListener);
                 });
 
                 } catch (e) {
@@ -217,10 +217,8 @@ async function fetchAndDrawRouteShapes(routesParam) {
 
 export async function fetchAndUpdateMarkers(routesParam) {
     if (!routesParam) {
-        console.log("fetchAndUpdateMarkers: No routesParam provided, skipping marker update.");
         return;
     }
-    // console.log("fetchAndUpdateMarkers: Fetching for routes:", routesParam);
     try {
         const response = await fetch(`/api/bus_data?routes=${routesParam}`);
         if (!response.ok) {
@@ -229,12 +227,11 @@ export async function fetchAndUpdateMarkers(routesParam) {
         }
         const busData = await response.json();
         const updatedVehicleIds = new Set();
-        const newBusMarkerObjects = { ...G.busMarkerObjects }; // Work on a copy
+        const newBusMarkerObjects = { ...G.busMarkerObjects }; 
 
         busData.forEach(bus => {
             const vehicleId = bus.vehicle_id;
             if (!vehicleId || vehicleId === 'N/A' || typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') {
-                // console.warn("Skipping bus with invalid data:", bus);
                 return;
             }
             updatedVehicleIds.add(vehicleId);
@@ -243,16 +240,14 @@ export async function fetchAndUpdateMarkers(routesParam) {
             const bearing = Number(bus.bearing) ?? 0;
             const routeId = bus.route_id || 'N/A';
             const routeShortName = routeId.includes('_') ? routeId.split('_').pop() : routeId;
-            const speedDisplay = bus.speed || 'N/A'; // Speed is already string "X km/h"
-            const timeDisplay = formatTimestamp(bus.raw_timestamp); // from map_init.js
+            const speedDisplay = bus.speed || 'N/A'; 
+            const timeDisplay = formatTimestamp(bus.raw_timestamp); 
 
-            let arrowStrokeColor = G.assignedRouteColors[routeId] || '#FF0000'; // Default to red if not found
-             if (!G.assignedRouteColors[routeId] && routeId !== 'N/A') { // Assign if missing, useful for direct loads/new routes
+            let arrowStrokeColor = G.assignedRouteColors[routeId] || '#FF0000'; 
+             if (!G.assignedRouteColors[routeId] && routeId !== 'N/A') { 
                 let hash = 0; for (let i = 0; i < routeId.length; i++) { hash = routeId.charCodeAt(i) + ((hash << 5) - hash); hash = hash & hash; }
                 arrowStrokeColor = G.ROUTE_COLORS[Math.abs(hash) % G.ROUTE_COLORS.length];
-                // G.assignedRouteColors[routeId] = arrowStrokeColor; // Color assignment is in map_state_modals
             }
-
 
             const currentInfoContent = `
                 <div style="font-family: sans-serif; font-size: 12px; line-height: 1.4;">
@@ -274,101 +269,132 @@ export async function fetchAndUpdateMarkers(routesParam) {
                     </g>
                 </svg>`;
 
-            if (newBusMarkerObjects[vehicleId]) {
+            if (newBusMarkerObjects[vehicleId]) { 
                 const md = newBusMarkerObjects[vehicleId];
                 md.gmapMarker.title = `Route: ${routeId}\nVehicle: ${vehicleId}\nSpeed: ${speedDisplay}\nTime: ${timeDisplay}`;
-                if (md.infowindow) md.infowindow.setContent(currentInfoContent);
+                // Update content of existing infowindow if it exists
+                if (md.infowindow) {
+                    md.infowindow.setContent(currentInfoContent);
+                } else { // Should not happen if created correctly, but as a fallback
+                    md.infowindow = new google.maps.InfoWindow({ content: currentInfoContent, ariaLabel: `Bus ${vehicleId}`});
+                    // Need to add closeclick listener here too if we are recreating it
+                    md.infowindow.addListener('closeclick', () => {
+                        if (G.currentlyOpenInfoWindow === md.infowindow) {
+                            G.setCurrentlyOpenInfoWindow(null);
+                        }
+                    });
+                }
                 
                 if (md.gmapMarker.content instanceof HTMLElement) {
                     md.gmapMarker.content.innerHTML = svgContent;
-                } else { // If content was not an element, make it one
+                } else { 
                     const el = document.createElement('div');
                     el.innerHTML = svgContent;
                     el.style.cursor = 'pointer';
                     md.gmapMarker.content = el;
                 }
                 
-                const currentMarkerPosition = md.gmapMarker.position; // AdvancedMarkerElement has a position property
-                // --- START DEBUG LOGS ---
-                console.log(`Vehicle ID: ${vehicleId}`);
-                console.log(`  Current Marker Pos: lat=${currentMarkerPosition?.lat}, lng=${currentMarkerPosition?.lng}`);
-                console.log(`  New API Pos: lat=${newPosition.lat}, lng=${newPosition.lng}`);
-                // --- END DEBUG LOGS ---
-
-                if (currentMarkerPosition && (Math.abs(currentMarkerPosition.lat - newPosition.lat) > 1e-6 || Math.abs(currentMarkerPosition.lng - newPosition.lng) > 1e-6)) {
-                    // --- MORE DEBUG LOGS ---
-                    console.log(`  FOR ${vehicleId}: Position HAS changed.`);
-                    console.log(`    md.isAnimating BEFORE check: ${md.isAnimating}`);
-                    console.log(`    md.targetPos BEFORE check: lat=${md.targetPos?.lat}, lng=${md.targetPos?.lng}`);
-                    // --- END MORE DEBUG LOGS ---
+                const currentMarkerPosition = md.gmapMarker.position; 
+                if (currentMarkerPosition && 
+                    (Math.abs(currentMarkerPosition.lat - newPosition.lat) > 1e-6 || Math.abs(currentMarkerPosition.lng - newPosition.lng) > 1e-6)) {
                     if (!md.isAnimating || md.targetPos?.lat !== newPosition.lat || md.targetPos?.lng !== newPosition.lng) {
-                        // --- EVEN MORE DEBUG LOGS ---
-                        console.log(`    FOR ${vehicleId}: Condition to START/RESET animation MET.`);
-                        // --- END EVEN MORE DEBUG LOGS ---
                         md.startPos = { lat: currentMarkerPosition.lat, lng: currentMarkerPosition.lng };
                         md.targetPos = newPosition;
                         md.startTime = performance.now();
                         md.isAnimating = true; 
-                        // --- FINAL DEBUG LOG ---
-                        console.log(`    FOR ${vehicleId}: md.isAnimating is NOW: ${md.isAnimating}`);
-                        // --- END FINAL DEBUG LOG ---
                     }
-
-                } else if (!md.isAnimating) { // Snap to position if not animating and very close or same
-                    md.gmapMarker.position = newPosition;
-                    md.startPos = null; // No longer need startPos if snapped
+                } else if (currentMarkerPosition) { 
+                    if (!md.isAnimating) { 
+                         md.gmapMarker.position = newPosition; 
+                         md.startPos = null; 
+                    }
+                } else { 
+                    md.gmapMarker.position = newPosition; 
+                    md.isAnimating = false; 
+                    md.startPos = null;
                 }
-            } else { // Marker doesn't exist, create new AdvancedMarkerElement
+            } else { 
                 const el = document.createElement('div');
                 el.innerHTML = svgContent;
-                el.style.cursor = 'pointer'; // Make it look clickable
+                el.style.cursor = 'pointer'; 
 
                 const newMarker = new google.maps.marker.AdvancedMarkerElement({
                     map: G.map,
-                    position: newPosition,
+                    position: newPosition, 
                     content: el,
-                    title: `R: ${routeId} V: ${vehicleId}`, // Tooltip
-                    zIndex: 100 // Higher zIndex for markers than paths
+                    title: `R: ${routeId} V: ${vehicleId}`, 
+                    zIndex: 100,
+                    gmpClickable: true 
                 });
                 const infowindow = new google.maps.InfoWindow({
                     content: currentInfoContent,
                     ariaLabel: `Bus ${vehicleId}`
                 });
-                // In fetchAndUpdateMarkers, when creating a NEW marker:
-                newMarker.addEventListener('gmp-click', () => { // Changed to 'gmp-click'
-                    const currentMarkerData = G.busMarkerObjects[vehicleId]; 
-                    if (currentMarkerData && currentMarkerData.infowindow) {
-                        currentMarkerData.infowindow.open({ anchor: currentMarkerData.gmapMarker, map: G.map });
+
+                // Add listener for the InfoWindow's own close button
+                infowindow.addListener('closeclick', () => {
+                    // If this infowindow was the one being tracked as open, clear the tracker
+                    if (G.currentlyOpenInfoWindow === infowindow) {
+                        G.setCurrentlyOpenInfoWindow(null);
+                        console.log(`InfoWindow for ${vehicleId} closed via its 'x' button.`);
                     }
-                    handleRouteInteraction(routeId); 
+                });
+
+                const capturedVehicleId = vehicleId; 
+                newMarker.addEventListener('gmp-click', () => { 
+                    console.log(`gmp-click FIRED for vehicleId: ${capturedVehicleId}`);
+                    const currentMarkerData = G.busMarkerObjects[capturedVehicleId]; 
+                    if (currentMarkerData && currentMarkerData.infowindow) {
+                        // Close any previously open InfoWindow
+                        if (G.currentlyOpenInfoWindow && G.currentlyOpenInfoWindow !== currentMarkerData.infowindow) {
+                            console.log("Closing previously open InfoWindow.");
+                            G.currentlyOpenInfoWindow.close();
+                        }
+                        
+                        // Open the new one and track it
+                        try {
+                            currentMarkerData.infowindow.open({ anchor: currentMarkerData.gmapMarker, map: G.map });
+                            G.setCurrentlyOpenInfoWindow(currentMarkerData.infowindow); // Track this as the open one
+                            console.log('  infowindow.open called successfully.'); 
+                        } catch (e) {
+                            console.error('  ERROR calling infowindow.open:', e); 
+                            G.setCurrentlyOpenInfoWindow(null); // Ensure tracker is cleared on error
+                        }
+                    } else {
+                        console.error('  gmp-click: currentMarkerData or currentMarkerData.infowindow is missing or invalid.');
+                    }
                 });
 
                 newBusMarkerObjects[vehicleId] = {
                     gmapMarker: newMarker,
                     infowindow: infowindow,
-                    isAnimating: false,
-                    startPos: null, // Will be set on first animation
-                    targetPos: newPosition, // Initial target
+                    isAnimating: false, 
+                    startPos: null, 
+                    targetPos: newPosition, 
                     startTime: 0
                 };
             }
         });
 
-        // Remove markers for vehicles no longer in the feed
         for (const vid in newBusMarkerObjects) {
             if (!updatedVehicleIds.has(vid)) {
                 if (newBusMarkerObjects[vid].gmapMarker) {
-                    newBusMarkerObjects[vid].gmapMarker.map = null; // Remove from map
+                    // If the marker being removed had the currently open infowindow, clear the tracker
+                    if (G.currentlyOpenInfoWindow && newBusMarkerObjects[vid].infowindow === G.currentlyOpenInfoWindow) {
+                        G.setCurrentlyOpenInfoWindow(null);
+                    }
+                    newBusMarkerObjects[vid].gmapMarker.map = null; 
                 }
-                delete newBusMarkerObjects[vid]; // Remove from our tracking object
+                delete newBusMarkerObjects[vid]; 
             }
         }
-        G.setBusMarkerObjects(newBusMarkerObjects); // Update global store
-        startAnimationLoop(); // from map_init.js - ensure animation loop runs if new animations started
+        G.setBusMarkerObjects(newBusMarkerObjects); 
+        startAnimationLoop(); 
     } catch (error) {
         console.error("fetchAndUpdateMarkers: General error:", error);
     }
-    // console.log("fetchAndUpdateMarkers: FINISHED.");
 }
+
+
 
 console.log("map_data_layer.js: FINISHED PARSING.");

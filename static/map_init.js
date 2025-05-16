@@ -25,7 +25,7 @@ async function loadGoogleMapsScript() {
 
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap&libraries=marker&v=beta&loading=async`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap&v=beta&libraries=marker&loading=async`;
             script.async = true;
             script.defer = true;
             script.onload = () => {
@@ -45,7 +45,6 @@ async function loadGoogleMapsScript() {
     }
 }
 
-// IMPORTANT: This function is called by the Google Maps script's callback parameter
 async function initMapGoogleCallback() {
     console.log(">>> initMapGoogleCallback: STARTED by Google Maps API!");
     try {
@@ -122,6 +121,19 @@ async function initMapGoogleCallback() {
         });
     }
     
+    if (G.map) {
+        G.map.addListener('click', (e) => {
+            console.log("Map base clicked."); 
+            // If an InfoWindow is open, close it and clear the tracker
+            if (G.currentlyOpenInfoWindow) {
+                console.log("Closing InfoWindow due to map click.");
+                G.currentlyOpenInfoWindow.close();
+                G.setCurrentlyOpenInfoWindow(null);
+            }
+            // When route highlighting is implemented, you might also call clearRouteHighlight() here.
+        });
+    }
+
     startAnimationLoop(); // Start animation loop for smooth marker movements
 
     // Set up the main data refresh interval based on JS_DATA_REFRESH_INTERVAL_SECONDS
