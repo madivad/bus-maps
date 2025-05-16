@@ -8,7 +8,8 @@ export async function updateMapData() {
     console.log("updateMapData: STARTED. Current selected routes (G.selectedRealtimeRouteIds):", Array.from(G.selectedRealtimeRouteIds));
 
     if (G.currentlyHighlightedRouteId) {
-    clearRouteHighlight(); 
+        clearRouteHighlight(); 
+    }
 
     clearAllMapLayers();
     updateMapTitle();
