@@ -124,17 +124,14 @@ async function initMapGoogleCallback() {
     if (G.map) {
         G.map.addListener('click', (e) => {
             console.log("Map base clicked."); 
-            // If an InfoWindow is open, close it and clear the tracker
             if (G.currentlyOpenInfoWindow) {
-                console.log("Closing InfoWindow due to map click.");
                 G.currentlyOpenInfoWindow.close();
                 G.setCurrentlyOpenInfoWindow(null);
             }
-            // When route highlighting is implemented, you might also call clearRouteHighlight() here.
         });
     }
 
-    startAnimationLoop(); // Start animation loop for smooth marker movements
+    startAnimationLoop();
 
     // Set up the main data refresh interval based on JS_DATA_REFRESH_INTERVAL_SECONDS
     // This interval just resets the countdown. The actual fetch happens due to countdown.

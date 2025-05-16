@@ -6,6 +6,10 @@ import { startAnimationLoop, formatTimestamp } from './map_init.js';
 
 export async function updateMapData() {
     console.log("updateMapData: STARTED. Current selected routes (G.selectedRealtimeRouteIds):", Array.from(G.selectedRealtimeRouteIds));
+
+    if (G.currentlyHighlightedRouteId) {
+    clearRouteHighlight(); 
+
     clearAllMapLayers();
     updateMapTitle();
 
@@ -142,7 +146,6 @@ async function fetchAndDrawRouteShapes(routesParam) {
             console.log("fetchAndDrawRouteShapes: No shape data received from API for routes:", routesParam);
             return;
         }
-        console.log(`fetchAndDrawRouteShapes: Received shape data for ${Object.keys(shapesData).length} routes.`);
 
         const newRoutePolylines = { ...G.routePolylines }; // Work on a copy
 
@@ -161,7 +164,7 @@ async function fetchAndDrawRouteShapes(routesParam) {
                 continue;
             }
 
-            let colorForPolyline = G.assignedRouteColors[routeId];
+            let colorForPolyline = G.assignedRouteColors[routeId]; // || G.ROUTE_COLORS[0];
             if (!colorForPolyline) {
                 let hash = 0;
                 for (let i = 0; i < routeId.length; i++) {
@@ -200,7 +203,7 @@ async function fetchAndDrawRouteShapes(routesParam) {
                     const currentRouteIdForListener = routeId; // Capture routeId for the listener
                     polyline.addListener('click', () => {
                         console.log(`Polyline for route ${currentRouteIdForListener} clicked.`);
-                        //handleRouteInteraction(currentRouteIdForListener);
+                        handleRouteInteraction(currentRouteIdForListener);
                 });
 
                 } catch (e) {
@@ -341,6 +344,7 @@ export async function fetchAndUpdateMarkers(routesParam) {
                 });
 
                 const capturedVehicleId = vehicleId; 
+                const capturedRouteId = routeId;
                 newMarker.addEventListener('gmp-click', () => { 
                     console.log(`gmp-click FIRED for vehicleId: ${capturedVehicleId}`);
                     const currentMarkerData = G.busMarkerObjects[capturedVehicleId]; 
@@ -354,8 +358,7 @@ export async function fetchAndUpdateMarkers(routesParam) {
                         // Open the new one and track it
                         try {
                             currentMarkerData.infowindow.open({ anchor: currentMarkerData.gmapMarker, map: G.map });
-                            G.setCurrentlyOpenInfoWindow(currentMarkerData.infowindow); // Track this as the open one
-                            console.log('  infowindow.open called successfully.'); 
+                            G.setCurrentlyOpenInfoWindow(currentMarkerData.infowindow); // Track this as the open one                            
                         } catch (e) {
                             console.error('  ERROR calling infowindow.open:', e); 
                             G.setCurrentlyOpenInfoWindow(null); // Ensure tracker is cleared on error
@@ -363,6 +366,7 @@ export async function fetchAndUpdateMarkers(routesParam) {
                     } else {
                         console.error('  gmp-click: currentMarkerData or currentMarkerData.infowindow is missing or invalid.');
                     }
+                    handleRouteInteraction(capturedRouteId); 
                 });
 
                 newBusMarkerObjects[vehicleId] = {
@@ -395,6 +399,57 @@ export async function fetchAndUpdateMarkers(routesParam) {
     }
 }
 
+function applyPolylineStyles(routeIdToStyle, isHighlight) {
+    for (const polylineRouteId in G.routePolylines) {
+        if (G.routePolylines.hasOwnProperty(polylineRouteId)) {
+            G.routePolylines[polylineRouteId].forEach(polyline => {
+                if (polylineRouteId === routeIdToStyle) {
+                    polyline.setOptions({
+                        strokeOpacity: G.HIGHLIGHTED_POLYLINE_OPACITY,
+                        strokeWeight: G.HIGHLIGHTED_POLYLINE_WEIGHT,
+                        zIndex: G.HIGHLIGHTED_POLYLINE_ZINDEX
+                    });
+                } else { // De-emphasize other routes if a highlight is active
+                    polyline.setOptions({
+                        strokeOpacity: isHighlight ? G.DEEMPHASIZED_POLYLINE_OPACITY : G.DEFAULT_POLYLINE_OPACITY,
+                        strokeWeight: isHighlight ? G.DEEMPHASIZED_POLYLINE_WEIGHT : G.DEFAULT_POLYLINE_WEIGHT,
+                        zIndex: G.DEFAULT_POLYLINE_ZINDEX 
+                    });
+                }
+            });
+        }
+    }
+}
 
+export function handleRouteInteraction(clickedRouteId) { // Export if called from map_init (it won't be for this)
+    console.log(`Handling interaction for route: ${clickedRouteId}`);
+    if (!clickedRouteId || clickedRouteId === 'N/A') {
+        if (G.currentlyHighlightedRouteId) {
+            clearRouteHighlight();
+        }
+        return;
+    }
+
+    if (G.currentlyHighlightedRouteId === clickedRouteId) {
+        // Clicked the same route again, so clear highlight
+        clearRouteHighlight();
+    } else {
+        // New route selected or first highlight
+        G.setCurrentlyHighlightedRouteId(clickedRouteId);
+        applyPolylineStyles(clickedRouteId, true); // true for highlighting
+        console.log(`Route ${clickedRouteId} highlighted.`);
+    }
+}
+
+export function clearRouteHighlight() { // Needs to be exported to be called by map_init.js
+    if (!G.currentlyHighlightedRouteId) {
+        // console.log("clearRouteHighlight: No route currently highlighted.");
+        return; 
+    }
+    console.log("Clearing route highlight for:", G.currentlyHighlightedRouteId);
+    applyPolylineStyles(null, false); // Pass null/false to revert all to default
+    G.setCurrentlyHighlightedRouteId(null);
+    console.log("All route highlights cleared.");
+}
 
 console.log("map_data_layer.js: FINISHED PARSING.");

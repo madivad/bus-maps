@@ -31,7 +31,7 @@ export let mapTitleH3;
 export let updateFrequencySelect, toggleLiveTrackingCheckbox, toggleRoutePathsCheckbox, saveOptionsBtn;
 export let timerDisplayElement;
 
-// -- Styles for overlaying routes and making them more visible
+// --- Polyline Style Constants ---
 export const DEFAULT_POLYLINE_OPACITY = 0.35;
 export const DEFAULT_POLYLINE_WEIGHT = 5;
 export const DEFAULT_POLYLINE_ZINDEX = 1;
