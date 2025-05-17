@@ -2,7 +2,14 @@
 console.log("map_init.js: PARSING.");
 
 import * as G from './map_globals.js'; // G for Globals
-import { loadStateFromLocalStorage, openOperatorsModal, openRoutesModal, openOptionsModal, handleSaveOperators, handleSaveRoutes, handleSaveOptions, filterAvailableRoutes } from './map_state_modals.js';
+import { loadStateFromLocalStorage, 
+         openOperatorsModal, 
+         openRoutesModal, 
+         openOptionsModal, 
+         handleSaveOperators, 
+         handleSaveRoutes, 
+         handleSaveOptions, 
+         filterAvailableRoutes } from './map_state_modals.js';
 import { updateMapData, fetchAndUpdateMarkers, populateSidebar, handleRouteInteraction, clearRouteHighlight } from './map_data_layer.js';
 
 
@@ -186,11 +193,11 @@ function updateTimerDisplay() {
 }
 
 function startOneSecondCountdown() {
-    console.log("startOneSecondCountdown: STARTED.");
+    // console.log("startOneSecondCountdown: STARTED."); // Can be noisy
     if (G.countdownIntervalId) {
         clearInterval(G.countdownIntervalId);
         G.setCountdownIntervalId(null);
-        console.log("startOneSecondCountdown: Cleared existing countdown interval.");
+        // console.log("startOneSecondCountdown: Cleared existing countdown interval.");
     }
     G.setCountdownValue(G.JS_DATA_REFRESH_INTERVAL_SECONDS);
     updateTimerDisplay();

@@ -38,8 +38,7 @@
         <div class="modal-content">
             <span class="close-button" id="close-routes-modal">×</span>
             <h2>Select Routes</h2>
-            <div style="display: flex; justify-content: space-between;">
-                {/* Wrap the two list sections for better flex control */}
+            <div class="routes-modal-body-flex-container" style="display: flex; justify-content: space-between;">
                 <div class="routes-list-column">
                     <div id="selected-routes-list-container">
                         <h4>Selected Routes:</h4>
@@ -52,7 +51,7 @@
                     <div id="available-routes-list" class="modal-list scrollable-list">
                     </div>
                 </div>
-                <div id="route-preview-container" style="flex-basis: 40%; border: 1px solid #ccc; margin-left: 15px; min-height: 200px; display: flex; align-items: center; justify-content: center; text-align: center;">
+                <div id="route-preview-container" style="border: 1px solid #ccc; margin-left: 15px; min-height: 200px; display: flex; align-items: center; justify-content: center; text-align: center;">
                     Click an available route to preview its path.
                 </div>
             </div>

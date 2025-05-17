@@ -155,11 +155,11 @@ export async function renderRoutePreviewInModal(routeId, previewContainerElement
         previewContainerElement.innerHTML = '';
         previewContainerElement.appendChild(svg);
         
-        const computedContainerStyle = window.getComputedStyle(previewContainerElement);
-        const computedSvgStyle = window.getComputedStyle(svg);
-        console.log("renderRoutePreviewInModal: Computed Container Style (WxH):", computedContainerStyle.width, computedContainerStyle.height);
-        console.log("renderRoutePreviewInModal: Computed SVG Style (WxH):", computedSvgStyle.width, computedSvgStyle.height);
-        console.log("renderRoutePreviewInModal: SVG Element OuterHTML (first 500 chars):", svg.outerHTML.substring(0, 500) + "...");
+        // const computedContainerStyle = window.getComputedStyle(previewContainerElement); // Verbose
+        // const computedSvgStyle = window.getComputedStyle(svg); // Verbose
+        // console.log("renderRoutePreviewInModal: Computed Container Style (WxH):", computedContainerStyle.width, computedContainerStyle.height); // Verbose
+        // console.log("renderRoutePreviewInModal: Computed SVG Style (WxH):", computedSvgStyle.width, computedSvgStyle.height); // Verbose
+        // console.log("renderRoutePreviewInModal: SVG Element OuterHTML (first 500 chars):", svg.outerHTML.substring(0, 500) + "..."); // Verbose
         
         console.log(`renderRoutePreviewInModal: SUCCESS - Rendered preview for ${routeId}. SVG appended.`);
 
@@ -256,18 +256,27 @@ export function populateSidebar() {
 
     if (G.sidebarDiv) G.sidebarDiv.style.display = 'block';
 
-    const selectedRouteDetails = G.allFetchedRoutesForCurrentOperators.filter(route =>
-        G.selectedRealtimeRouteIds.has(route.realtime_id)
-    );
+    // Ensure G.allFetchedRoutesForCurrentOperators is available.
+    // It should be populated by loadStateFromLocalStorage or when operators change/routes modal opens.
+    if (!G.allFetchedRoutesForCurrentOperators || G.allFetchedRoutesForCurrentOperators.length === 0) {
+        console.warn("populateSidebar: G.allFetchedRoutesForCurrentOperators is empty. Sidebar may not show route names correctly.");
+        // Potentially try to fetch them here if G.selectedOperatorIds is populated? Or rely on other flows.
+    }
+    
+    const selectedRouteDetails = Array.from(G.selectedRealtimeRouteIds).map(routeId => {
+        const details = G.allFetchedRoutesForCurrentOperators.find(r => r.realtime_id === routeId);
+        return details ? details : { realtime_id: routeId, short_name: routeId.split('_').pop() || routeId, agency_id: routeId.split('_')[0] || 'Unknown' }; // Fallback
+    });
+
 
      const sortedSelectedRoutes = selectedRouteDetails.sort((a, b) => {
-         const aParts = a.short_name.split(/[/\s]/);
-         const bParts = b.short_name.split(/[/\s]/);
-         const aNum = parseInt(aParts[0], 10);
-         const bNum = parseInt(bParts[0], 10);
+         const aParts = (a.short_name || "").split(/[/\s]/);
+         const bParts = (b.short_name || "").split(/[/\s]/);
+         const aNumVal = parseInt(aParts[0], 10);
+         const bNumVal = parseInt(bParts[0], 10);
 
-         if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return aNum - bNum;
-         return a.short_name.localeCompare(b.short_name);
+         if (!isNaN(aNumVal) && !isNaN(bNumVal) && aNumVal !== bNumVal) return aNumVal - bNumVal;
+         return (a.short_name || "").localeCompare(b.short_name || "");
      });
 
     sortedSelectedRoutes.forEach(route => {
@@ -353,13 +362,15 @@ export function updateMapTitle() {
         title += "None selected";
     } else {
         const shortNames = Array.from(G.selectedRealtimeRouteIds).map(rtId => {
-            const parts = rtId.split('_');
-            return parts.length > 1 ? parts[parts.length - 1] : rtId;
+            // Attempt to get short_name from allFetchedRoutesForCurrentOperators for consistency
+            const routeDetail = G.allFetchedRoutesForCurrentOperators.find(r => r.realtime_id === rtId);
+            return routeDetail ? routeDetail.short_name : (rtId.split('_').pop() || rtId); // Fallback
         }).sort((a,b) => {
-            const numA = parseInt(a.match(/\d+/)?.[0]);
-            const numB = parseInt(b.match(/\d+/)?.[0]);
+            const numA = parseInt((a || "").match(/\d+/)?.[0]); // Added null check for a
+            const numB = parseInt((b || "").match(/\d+/)?.[0]); // Added null check for b
+            // Corrected typo: was using aNum before
             if (!isNaN(numA) && !isNaN(numB) && numA !== numB) return numA - numB;
-            return a.localeCompare(b);
+            return (a || "").localeCompare(b || "");
         });
         title += shortNames.join(', ');
     }

@@ -49,7 +49,6 @@ async function fetchRoutesForOperators(operatorIdsSet) {
 }
 
 // --- Exported Functions ---
-
 export async function loadStateFromLocalStorage() {
     console.log("loadStateFromLocalStorage: STARTED");
     const storedOperatorIds = localStorage.getItem('selectedOperatorIds');
