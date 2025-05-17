@@ -4,7 +4,6 @@ import * as G from './map_globals.js';
 // Make sure updateMapData is imported if not already, though it's usually called after modal saves
 import { updateMapData, populateSidebar, toggleRouteVisibility, renderRoutePreviewInModal } from './map_data_layer.js'; 
 
-// NEW helper function to fetch routes for operators
 async function fetchRoutesForOperators(operatorIdsSet) {
     if (!operatorIdsSet || operatorIdsSet.size === 0) {
         G.setAllFetchedRoutesForCurrentOperators([]);
@@ -43,6 +42,31 @@ async function fetchRoutesForOperators(operatorIdsSet) {
     }
 }
 
+export function saveStateToLocalStorage() {
+    console.log("saveStateToLocalStorage: SAVING. Current state from G:", {
+        operators: Array.from(G.selectedOperatorIds),
+        routes_selected: Array.from(G.selectedRealtimeRouteIds),
+        routes_visible: Array.from(G.visibleRealtimeRouteIds),
+        options: G.currentMapOptions,
+        colors: G.assignedRouteColors,
+        allFetchedRoutesCount: G.allFetchedRoutesForCurrentOperators.length // Also log this for context
+    });
+
+    try {
+        localStorage.setItem('selectedOperatorIds', JSON.stringify(Array.from(G.selectedOperatorIds)));
+        localStorage.setItem('selectedRealtimeRouteIds', JSON.stringify(Array.from(G.selectedRealtimeRouteIds)));
+        localStorage.setItem('visibleRealtimeRouteIds', JSON.stringify(Array.from(G.visibleRealtimeRouteIds)));
+        localStorage.setItem('currentMapOptions', JSON.stringify(G.currentMapOptions));
+        localStorage.setItem('assignedRouteColors', JSON.stringify(G.assignedRouteColors));
+        // Note: We don't save allFetchedRoutesForCurrentOperators to localStorage as it's dynamic
+        // and can be large. It's refetched based on selected operators.
+        console.log("saveStateToLocalStorage: FINISHED - State saved to localStorage.");
+    } catch (e) {
+        console.error("saveStateToLocalStorage: ERROR saving to localStorage.", e);
+        // Optionally, inform the user if localStorage is full or unavailable, though this is rare.
+        // alert("Could not save preferences. Your browser's local storage might be full or disabled.");
+    }
+}
 
 // Modify loadStateFromLocalStorage
 export async function loadStateFromLocalStorage() { // Make it async
@@ -163,8 +187,6 @@ export async function openRoutesModal() {
     populateRoutesModalLists(); // This function will use G.allFetchedRoutesForCurrentOperators
     G.routesModal.style.display = "block";
 }
-
-// ... (rest of map_state_modals.js, ensure handleSaveOperators also calls fetchRoutesForOperators if operators change)
 
 export async function handleSaveOperators() {
     console.log("handleSaveOperators: CLICKED.");

@@ -69,7 +69,7 @@ async function initMapGoogleCallback() {
 
     initializeDOMElements();
     addEventListeners();
-    loadStateFromLocalStorage();
+    await loadStateFromLocalStorage();
 
     console.log(">>> initMapGoogleCallback: Initial G.selectedOperatorIds size:", G.selectedOperatorIds.size);
     console.log(">>> initMapGoogleCallback: Initial G.selectedRealtimeRouteIds size:", G.selectedRealtimeRouteIds.size);
