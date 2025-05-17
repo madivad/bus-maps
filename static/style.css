@@ -131,27 +131,41 @@ html, body {
     padding-bottom: 5px;
 }
 
-#sidebar-routes-list {
-    /* Styles for individual items are in .sidebar-route-item */
-}
-
 .sidebar-route-item {
-    display: flex;
-    align-items: center;
+    display: flex; /* Already flex */
+    align-items: center; /* Already center */
     margin-bottom: 8px;
-    font-size: 0.85em;
+    font-size: 0.85em; 
+    /* cursor: pointer; /* The label inside will now have cursor: pointer */
+    /* If you want a background on hover for the whole item: */
+    /* padding: 2px 0; */
+    /* border-radius: 3px; */
+}
+/* .sidebar-route-item:hover { */
+    /* background-color: #f0f0f0; */
+/* } */
+
+
+.sidebar-route-item label { /* Style for the new inner label */
+    display: flex; /* Align checkbox, dot, and text within the label */
+    align-items: center;
     cursor: pointer;
+    flex-grow: 1; /* Make the label take up space, good for clickability */
+    /* Prevent text from pushing checkbox/dot too far if an item is very narrow */
+    overflow: hidden; 
+    text-overflow: ellipsis;
+    white-space: nowrap; /* Prevent long names from wrapping to multiple lines in the sidebar item */
 }
 
 .sidebar-route-item input[type="checkbox"] {
-    margin-right: 8px;
+    margin-right: 6px;
     flex-shrink: 0;
 }
 
 .route-color-dot {
     display: inline-block;
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     margin-right: 8px;
     border: 1px solid #777;
@@ -281,11 +295,6 @@ html, body {
     flex-shrink: 0; /* Prevent button from shrinking */
 }
 
-
-/* --- Options Modal Specifics --- */
-#options-modal .modal-content {
-    /* Uses general .modal-content styles, max-width: 500px; */
-}
 #options-content-area .option-item {
     margin-bottom: 15px;
     display: flex;

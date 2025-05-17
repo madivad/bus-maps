@@ -250,38 +250,40 @@ export function populateSidebar() {
     if (G.selectedRealtimeRouteIds.size === 0) {
         G.sidebarRoutesListDiv.textContent = 'No routes selected.';
          if (G.sidebarDiv) G.sidebarDiv.style.display = 'none';
-        // console.log("populateSidebar: No selected routes to populate.");
         return;
     }
 
     if (G.sidebarDiv) G.sidebarDiv.style.display = 'block';
-
-    // Ensure G.allFetchedRoutesForCurrentOperators is available.
-    // It should be populated by loadStateFromLocalStorage or when operators change/routes modal opens.
-    if (!G.allFetchedRoutesForCurrentOperators || G.allFetchedRoutesForCurrentOperators.length === 0) {
-        console.warn("populateSidebar: G.allFetchedRoutesForCurrentOperators is empty. Sidebar may not show route names correctly.");
-        // Potentially try to fetch them here if G.selectedOperatorIds is populated? Or rely on other flows.
-    }
     
     const selectedRouteDetails = Array.from(G.selectedRealtimeRouteIds).map(routeId => {
         const details = G.allFetchedRoutesForCurrentOperators.find(r => r.realtime_id === routeId);
-        return details ? details : { realtime_id: routeId, short_name: routeId.split('_').pop() || routeId, agency_id: routeId.split('_')[0] || 'Unknown' }; // Fallback
+        // Fallback if details are somehow not found in the cache
+        return details ? details : { 
+            realtime_id: routeId, 
+            short_name: routeId.split('_').pop() || routeId, 
+            long_name: "Details not loaded", // Fallback long name
+            agency_id: routeId.split('_')[0] || 'Unknown' 
+        };
     });
 
-
      const sortedSelectedRoutes = selectedRouteDetails.sort((a, b) => {
-         const aParts = (a.short_name || "").split(/[/\s]/);
-         const bParts = (b.short_name || "").split(/[/\s]/);
+         const aShortName = a.short_name || ""; // Handle potential undefined
+         const bShortName = b.short_name || "";
+         const aParts = aShortName.split(/[/\s]/);
+         const bParts = bShortName.split(/[/\s]/);
          const aNumVal = parseInt(aParts[0], 10);
          const bNumVal = parseInt(bParts[0], 10);
 
          if (!isNaN(aNumVal) && !isNaN(bNumVal) && aNumVal !== bNumVal) return aNumVal - bNumVal;
-         return (a.short_name || "").localeCompare(b.short_name || "");
+         return aShortName.localeCompare(bShortName);
      });
 
     sortedSelectedRoutes.forEach(route => {
         const routeItemDiv = document.createElement('div');
         routeItemDiv.className = 'sidebar-route-item';
+        // Add a title attribute (tooltip) for the full long name, good for truncation
+        routeItemDiv.title = `${route.short_name}: ${route.long_name || route.realtime_id}`;
+
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -292,11 +294,32 @@ export function populateSidebar() {
         colorDot.className = 'route-color-dot';
         colorDot.style.backgroundColor = G.assignedRouteColors[route.realtime_id] || G.ROUTE_COLORS[0];
 
-        const labelText = document.createTextNode(`${route.short_name}`);
+        // --- MODIFICATION START: Display short_name and part of long_name ---
+        let displayText = route.short_name;
+        if (route.long_name && route.long_name !== "Details not loaded") {
+            // You might want to truncate the long_name if it's very long
+            const maxLength = 25; // Max characters for long_name part in sidebar
+            let longNamePart = route.long_name;
+            if (longNamePart.length > maxLength) {
+                longNamePart = longNamePart.substring(0, maxLength - 3) + "...";
+            }
+            displayText += ` - ${longNamePart}`;
+        }
+        const labelTextNode = document.createTextNode(displayText);
+        // --- MODIFICATION END ---
 
-        routeItemDiv.appendChild(colorDot);
-        routeItemDiv.appendChild(checkbox);
-        routeItemDiv.appendChild(labelText);
+        // Create a label to make the text clickable for the checkbox
+        const labelElement = document.createElement('label');
+        labelElement.style.display = 'flex'; // Align items within the label
+        labelElement.style.alignItems = 'center';
+        labelElement.style.cursor = 'pointer'; // Make it clear it's clickable
+        labelElement.style.flexGrow = '1'; // Allow label to take remaining space
+
+        labelElement.appendChild(checkbox); // Checkbox first for typical layout
+        labelElement.appendChild(colorDot); // Then color dot
+        labelElement.appendChild(labelTextNode); // Then the text
+
+        routeItemDiv.appendChild(labelElement); // Append the label (which contains checkbox, dot, text)
 
         checkbox.addEventListener('change', (event) => {
             const routeId = event.target.value;
