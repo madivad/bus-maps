@@ -8,6 +8,7 @@ import { saveStateToLocalStorage } from './map_state_modals.js';
 // Helper function to calculate bounding box for a set of points
 function getBoundingBox(points) {
     if (!points || points.length === 0) {
+        console.warn("getBoundingBox: No points provided or empty array.");
         return null;
     }
     let minLat = points[0].lat;
@@ -21,94 +22,149 @@ function getBoundingBox(points) {
         minLng = Math.min(minLng, points[i].lng);
         maxLng = Math.max(maxLng, points[i].lng);
     }
+    
+    const rangeEpsilon = 0.00001; // How small a range is considered "too small"
+    const paddingEpsilon = 0.0001; // How much to pad if range is too small
+
+    if (Math.abs(maxLat - minLat) < rangeEpsilon) { 
+        console.warn("getBoundingBox: Latitude range very small, adding padding epsilon.");
+        maxLat += paddingEpsilon; 
+        minLat -= paddingEpsilon;
+    }
+    if (Math.abs(maxLng - minLng) < rangeEpsilon) { 
+        console.warn("getBoundingBox: Longitude range very small, adding padding epsilon.");
+        maxLng += paddingEpsilon; 
+        minLng -= paddingEpsilon;
+    }
+    
     return { minLat, maxLat, minLng, maxLng };
 }
 
-
-// NEW: Function to render a route shape preview as SVG in the modal
 export async function renderRoutePreviewInModal(routeId, previewContainerElement) {
     if (!routeId || !previewContainerElement) {
         console.error("renderRoutePreviewInModal: Missing routeId or container element.");
         if (previewContainerElement) previewContainerElement.innerHTML = 'Error: Missing data for preview.';
         return;
     }
-    console.log(`renderRoutePreviewInModal: Fetching shape for route ${routeId}`);
+    console.log(`renderRoutePreviewInModal: START - Fetching shape for route ${routeId}`);
     previewContainerElement.innerHTML = 'Loading preview...';
 
     try {
         const response = await fetch(`/api/route_shapes?routes=${routeId}`);
+        console.log(`renderRoutePreviewInModal: API response status for ${routeId}: ${response.status}`);
         if (!response.ok) {
-            throw new Error(`HTTP error ${response.status} for route ${routeId}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP error ${response.status} for route ${routeId}. Response: ${errorText}`);
         }
         const shapesData = await response.json();
+        console.log(`renderRoutePreviewInModal: shapesData for ${routeId}:`, JSON.stringify(shapesData, null, 2).substring(0, 300) + "...");
+
 
         if (!shapesData || !shapesData[routeId] || shapesData[routeId].length === 0 || shapesData[routeId][0].length === 0) {
-            console.warn(`No shape data found for previewing route ${routeId}.`);
+            console.warn(`No shape data found for previewing route ${routeId}. shapesData[routeId]:`, shapesData ? shapesData[routeId] : 'undefined');
             previewContainerElement.innerHTML = 'No path data available for this route.';
             return;
         }
 
-        // Assuming the first shape path is representative for preview
         const pathPoints = shapesData[routeId][0].filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number');
+        console.log(`renderRoutePreviewInModal: Filtered pathPoints for ${routeId} (count: ${pathPoints.length}):`, JSON.stringify(pathPoints.slice(0, 3), null, 2) + "...");
+
         if (pathPoints.length < 2) {
+            console.warn(`Not enough valid path points for preview for route ${routeId}. Count: ${pathPoints.length}`);
             previewContainerElement.innerHTML = 'Not enough path data for preview.';
             return;
         }
 
         const bounds = getBoundingBox(pathPoints);
+        console.log(`renderRoutePreviewInModal: Calculated bounds for ${routeId}:`, JSON.stringify(bounds));
         if (!bounds) {
+            console.error(`Could not determine path bounds for route ${routeId}.`);
             previewContainerElement.innerHTML = 'Could not determine path bounds.';
             return;
         }
 
+        const containerWidth = previewContainerElement.clientWidth;
+        const containerHeight = previewContainerElement.clientHeight;
+        console.log(`renderRoutePreviewInModal: Preview container dimensions (WxH): ${containerWidth}x${containerHeight}`);
+        if (containerWidth === 0 || containerHeight === 0) {
+            console.warn("renderRoutePreviewInModal: Preview container has zero width or height. SVG might not be visible.");
+            // previewContainerElement.innerHTML = 'Preview area not ready.'; // Optional: User feedback
+            // return; // Or attempt to render anyway
+        }
+
         const svgNS = "http://www.w3.org/2000/svg";
         const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("width", "100%");
+        svg.setAttribute("height", "100%");
 
-        const previewWidth = previewContainerElement.clientWidth || 200; // Fallback width
-        const previewHeight = previewContainerElement.clientHeight || 150; // Fallback height
+        const latRange = Math.abs(bounds.maxLat - bounds.minLat);
+        const lngRange = Math.abs(bounds.maxLng - bounds.minLng);
+        console.log(`renderRoutePreviewInModal: LatRange=${latRange.toFixed(6)}, LngRange=${lngRange.toFixed(6)}`);
+
+        const paddingFactor = 0.1; // 10% padding on each side
+        let viewMinX = bounds.minLng - lngRange * paddingFactor;
+        // viewMinYGeo is not directly used for svgViewBoxMinY calculation with this specific inversion method
+        let viewWidth = lngRange * (1 + 2 * paddingFactor);
+        let viewHeight = latRange * (1 + 2 * paddingFactor);
+
+        if (viewWidth <= 0.000001) { 
+            console.warn(`renderRoutePreviewInModal: viewWidth is effectively zero (${viewWidth}). Adjusting.`);
+            viewWidth = 0.01; 
+            viewMinX = bounds.minLng - (viewWidth / 2);
+        }
+        if (viewHeight <= 0.000001) {
+            console.warn(`renderRoutePreviewInModal: viewHeight is effectively zero (${viewHeight}). Adjusting.`);
+            viewHeight = 0.01; 
+            // The calculation for svgViewBoxMinY depends on bounds.maxLat, so adjusting viewMinYGeo isn't directly used here.
+        }
         
-        // Set viewBox to the bounding box of the route
-        // This is a simple Mercator-like projection for visualization, not geographically accurate scaling.
-        // For a simple preview, we scale longitude more than latitude to make it look less squashed.
-        const latRange = bounds.maxLat - bounds.minLat;
-        const lngRange = bounds.maxLng - bounds.minLng;
+        const svgViewBoxMinY = -(bounds.maxLat + latRange * paddingFactor);
 
-        // Add some padding to the viewBox
-        const paddingFactor = 0.1; // 10% padding
-        const viewMinX = bounds.minLng - lngRange * paddingFactor;
-        const viewMinY = bounds.minLat - latRange * paddingFactor;
-        const viewWidth = lngRange * (1 + 2 * paddingFactor);
-        const viewHeight = latRange * (1 + 2 * paddingFactor);
-
-        svg.setAttribute("viewBox", `${viewMinX} ${-bounds.maxLat - latRange*paddingFactor} ${viewWidth} ${viewHeight}`); // Y is inverted in SVG
-        svg.setAttribute("preserveAspectRatio", "xMidYMid meet"); // Scale to fit, maintain aspect ratio
+        svg.setAttribute("viewBox", `${viewMinX} ${svgViewBoxMinY} ${viewWidth} ${viewHeight}`);
+        svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        console.log(`renderRoutePreviewInModal: SVG viewBox for ${routeId}: "${viewMinX.toFixed(6)} ${svgViewBoxMinY.toFixed(6)} ${viewWidth.toFixed(6)} ${viewHeight.toFixed(6)}"`);
 
         const polyline = document.createElementNS(svgNS, "polyline");
         let pointsStr = "";
         pathPoints.forEach(p => {
-            pointsStr += `${p.lng},${-p.lat} `; // Invert Y for SVG coordinates
+            pointsStr += `${p.lng.toFixed(6)},${(-p.lat).toFixed(6)} `;
         });
         polyline.setAttribute("points", pointsStr.trim());
-
-        let routeColor = G.assignedRouteColors[routeId] || '#007bff'; // Default blue for preview
-        if (!G.assignedRouteColors[routeId]) {
-            let hash = 0; for (let i = 0; i < routeId.length; i++) { hash = routeId.charCodeAt(i) + ((hash << 5) - hash); hash = hash & hash; }
+        
+        let routeColor = G.assignedRouteColors[routeId] || '#007bff';
+        if (!G.assignedRouteColors[routeId] && routeId !== 'N/A') {
+            let hash = 0; 
+            for (let i = 0; i < routeId.length; i++) { 
+                hash = routeId.charCodeAt(i) + ((hash << 5) - hash); 
+                hash = hash & hash;
+            }
             routeColor = G.ROUTE_COLORS[Math.abs(hash) % G.ROUTE_COLORS.length];
         }
-
         polyline.setAttribute("stroke", routeColor);
-        polyline.setAttribute("stroke-width", Math.min(viewWidth, viewHeight) * 0.02); // Stroke relative to viewBox
         polyline.setAttribute("fill", "none");
-        polyline.setAttribute("vector-effect", "non-scaling-stroke"); // Keep stroke width constant on zoom (if SVG itself is scaled)
+        polyline.setAttribute("vector-effect", "non-scaling-stroke"); // KEEP THIS!
 
+        // --- CORRECTED STROKE WIDTH when using non-scaling-stroke ---
+        // Set a small, "pixel-like" value. "1" or "1.5" or "2" usually works well.
+        const desiredPixelStrokeWidth = "1.5"; // Experiment with 1, 1.5, 2
+        polyline.setAttribute("stroke-width", desiredPixelStrokeWidth); 
 
+        console.log(`renderRoutePreviewInModal: Polyline stroke for ${routeId}: color=${routeColor}, width=${desiredPixelStrokeWidth} (intended as screen units due to non-scaling-stroke)`);
+        
         svg.appendChild(polyline);
-        previewContainerElement.innerHTML = ''; // Clear "Loading..."
+        previewContainerElement.innerHTML = '';
         previewContainerElement.appendChild(svg);
-        console.log(`Rendered preview for ${routeId}`);
+        
+        const computedContainerStyle = window.getComputedStyle(previewContainerElement);
+        const computedSvgStyle = window.getComputedStyle(svg);
+        console.log("renderRoutePreviewInModal: Computed Container Style (WxH):", computedContainerStyle.width, computedContainerStyle.height);
+        console.log("renderRoutePreviewInModal: Computed SVG Style (WxH):", computedSvgStyle.width, computedSvgStyle.height);
+        console.log("renderRoutePreviewInModal: SVG Element OuterHTML (first 500 chars):", svg.outerHTML.substring(0, 500) + "...");
+        
+        console.log(`renderRoutePreviewInModal: SUCCESS - Rendered preview for ${routeId}. SVG appended.`);
 
     } catch (error) {
-        console.error(`Error rendering route preview for ${routeId}:`, error);
+        console.error(`renderRoutePreviewInModal: CATCH - Error rendering route preview for ${routeId}:`, error);
         previewContainerElement.innerHTML = 'Error loading preview.';
     }
 }
@@ -124,7 +180,6 @@ export async function updateMapData() {
 
     clearAllMapLayers();
     populateSidebar();
-
     updateMapTitle();
 
     if (G.sidebarDiv) {
@@ -144,10 +199,10 @@ export async function updateMapData() {
     }
 
     const routesParam = Array.from(G.selectedRealtimeRouteIds).join(',');
-    console.log("updateMapData: routesParam for API (selected routes):", routesParam);
+    // console.log("updateMapData: routesParam for API (selected routes):", routesParam); // Can be verbose
 
     if (G.currentMapOptions.showRoutePathsEnabled) {
-        console.log("updateMapData: Route paths ARE enabled. Fetching shapes.");
+        // console.log("updateMapData: Route paths ARE enabled. Fetching shapes."); // Can be verbose
         await fetchAndDrawRouteShapes(routesParam);
     } else {
         console.log("updateMapData: Route paths ARE NOT enabled. Skipping shapes.");
@@ -156,14 +211,14 @@ export async function updateMapData() {
     if (G.dataFetchIntervalId) {
         clearInterval(G.dataFetchIntervalId);
         G.setDataFetchIntervalId(null);
-        console.log("updateMapData: Cleared existing data fetch interval.");
+        // console.log("updateMapData: Cleared existing data fetch interval."); // Can be verbose
     }
 
-    console.log("updateMapData: Fetching markers.");
+    // console.log("updateMapData: Fetching markers."); // Can be verbose
     await fetchAndUpdateMarkers(routesParam);
 
     if (G.currentMapOptions.liveTrackingEnabled) {
-        console.log("updateMapData: Live tracking IS enabled. Starting interval.");
+        // console.log("updateMapData: Live tracking IS enabled. Starting interval."); // Can be verbose
         G.setDataFetchIntervalId(setInterval(async () => {
             if (G.currentMapOptions.liveTrackingEnabled && G.selectedRealtimeRouteIds.size > 0) {
                 const currentRoutesParamForInterval = Array.from(G.selectedRealtimeRouteIds).join(',');
@@ -176,7 +231,7 @@ export async function updateMapData() {
                 }
             }
         }, G.currentMapOptions.updateIntervalMs));
-        console.log(`updateMapData: Live tracking interval (re)started for ${G.currentMapOptions.updateIntervalMs / 1000}s.`);
+        // console.log(`updateMapData: Live tracking interval (re)started for ${G.currentMapOptions.updateIntervalMs / 1000}s.`);
     } else {
         console.log("updateMapData: Live tracking IS NOT enabled. Markers fetched once.");
     }
@@ -185,7 +240,7 @@ export async function updateMapData() {
 }
 
 export function populateSidebar() {
-    console.log("populateSidebar: STARTED.");
+    // console.log("populateSidebar: STARTED."); // Can be verbose
     if (!G.sidebarRoutesListDiv) {
          console.error("populateSidebar: G.sidebarRoutesListDiv is null!");
          return;
@@ -195,7 +250,7 @@ export function populateSidebar() {
     if (G.selectedRealtimeRouteIds.size === 0) {
         G.sidebarRoutesListDiv.textContent = 'No routes selected.';
          if (G.sidebarDiv) G.sidebarDiv.style.display = 'none';
-        console.log("populateSidebar: No selected routes to populate.");
+        // console.log("populateSidebar: No selected routes to populate.");
         return;
     }
 
@@ -242,11 +297,11 @@ export function populateSidebar() {
 
         G.sidebarRoutesListDiv.appendChild(routeItemDiv);
     });
-     console.log(`populateSidebar: Populated sidebar with ${sortedSelectedRoutes.length} routes.`);
+     // console.log(`populateSidebar: Populated sidebar with ${sortedSelectedRoutes.length} routes.`);
 }
 
 export function toggleRouteVisibility(routeId, isVisible) {
-    console.log(`toggleRouteVisibility: Route ${routeId}, Visible: ${isVisible}`);
+    // console.log(`toggleRouteVisibility: Route ${routeId}, Visible: ${isVisible}`); // Can be verbose
 
     const currentVisible = new Set(G.visibleRealtimeRouteIds);
     if (isVisible) {
@@ -257,7 +312,7 @@ export function toggleRouteVisibility(routeId, isVisible) {
     G.setVisibleRealtimeRouteIds(currentVisible);
 
     saveStateToLocalStorage();
-    console.log(`toggleRouteVisibility: Saved new state after toggling ${routeId}.`);
+    // console.log(`toggleRouteVisibility: Saved new state after toggling ${routeId}.`);
 
     if (G.routePolylines[routeId]) {
         G.routePolylines[routeId].forEach(polyline => {
@@ -271,12 +326,12 @@ export function toggleRouteVisibility(routeId, isVisible) {
             if (markerData.route_id === routeId && markerData.gmapMarker) {
                 markerData.gmapMarker.map = isVisible ? G.map : null;
                 if (!isVisible && G.currentlyOpenInfoWindow === markerData.infowindow) {
-                         markerData.infowindow.close();
-                         G.setCurrentlyOpenInfoWindow(null);
-                     }
+                     markerData.infowindow.close();
+                     G.setCurrentlyOpenInfoWindow(null);
                 }
             }
         }
+    }
 
      if (G.currentlyHighlightedRouteId) {
         if (!isVisible && G.currentlyHighlightedRouteId === routeId) {
@@ -312,7 +367,7 @@ export function updateMapTitle() {
 }
 
 export function clearAllMapLayers() {
-    console.log("clearAllMapLayers: STARTED.");
+    // console.log("clearAllMapLayers: STARTED."); // Can be verbose
     for (const routeId in G.routePolylines) {
         if (G.routePolylines.hasOwnProperty(routeId)) {
             G.routePolylines[routeId].forEach(polyline => {
@@ -352,34 +407,66 @@ export function clearAllMapLayers() {
         cancelAnimationFrame(G.animationFrameId);
         G.setAnimationFrameId(null);
     }
-    console.log("clearAllMapLayers: FINISHED. Polylines, markers, and sidebar content cleared.");
+    // console.log("clearAllMapLayers: FINISHED.");
 }
 
 async function fetchAndDrawRouteShapes(routesParam) {
     if (!routesParam || G.currentMapOptions.showRoutePathsEnabled === false) {
-        console.log("fetchAndDrawRouteShapes: No routesParam or showRoutePathsEnabled is false, skipping.");
+        // console.log("fetchAndDrawRouteShapes: No routesParam or showRoutePathsEnabled is false, skipping.");
         return;
     }
-    console.log("fetchAndDrawRouteShapes: Fetching for routes:", routesParam);
+    // console.log("fetchAndDrawRouteShapes: Fetching for routes:", routesParam);
     try {
         const response = await fetch(`/api/route_shapes?routes=${routesParam}`);
-        if (!response.ok) return;
+        if (!response.ok) {
+            console.error(`fetchAndDrawRouteShapes: HTTP error ${response.status} for routes ${routesParam}`);
+            return;
+        }
         const shapesData = await response.json();
-        if (Object.keys(shapesData).length === 0) return;
+        if (Object.keys(shapesData).length === 0) {
+            // console.log("fetchAndDrawRouteShapes: No shape data received from API for routes:", routesParam);
+            return;
+        }
 
         const tempRoutePolylines = {};
+
         for (const routeId in shapesData) {
-            if (!shapesData.hasOwnProperty(routeId) || !G.selectedRealtimeRouteIds.has(routeId)) continue;
+            if (!shapesData.hasOwnProperty(routeId) || !G.selectedRealtimeRouteIds.has(routeId)) {
+                 continue;
+            }
+
              tempRoutePolylines[routeId] = [];
+
             const shapes = shapesData[routeId];
-            if (!Array.isArray(shapes)) continue;
+            if (!Array.isArray(shapes)) {
+                console.warn(`Shapes for route ${routeId} is not an array:`, shapes);
+                continue;
+            }
+
             let colorForPolyline = G.assignedRouteColors[routeId] || '#FF0000';
-            if (!G.assignedRouteColors[routeId] && routeId !== 'N/A') { /* ... hash color ... */ colorForPolyline = G.ROUTE_COLORS[Math.abs(hash) % G.ROUTE_COLORS.length]; }
+            if (!G.assignedRouteColors[routeId] && routeId !== 'N/A') {
+                let hash = 0; 
+                for (let i = 0; i < routeId.length; i++) { 
+                    hash = routeId.charCodeAt(i) + ((hash << 5) - hash); 
+                    hash = hash & hash;
+                }
+                colorForPolyline = G.ROUTE_COLORS[Math.abs(hash) % G.ROUTE_COLORS.length];
+                console.warn(`fetchAndDrawRouteShapes: Used fallback color for route ${routeId}.`);
+            }
+
             const isRouteVisible = G.visibleRealtimeRouteIds.has(routeId);
+
             shapes.forEach((pathPoints) => {
-                if (!Array.isArray(pathPoints) || pathPoints.length < 2) return;
+                if (!Array.isArray(pathPoints) || pathPoints.length < 2) {
+                     // console.warn(`Invalid pathPoints array for route ${routeId}:`, pathPoints);
+                     return;
+                }
                 const validPathPoints = pathPoints.filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number');
-                if (validPathPoints.length < 2) return;
+                if (validPathPoints.length < 2) {
+                    // console.warn(`Not enough valid coordinate points for polyline on route ${routeId}`);
+                    return;
+                }
+
                 try {
                     const polyline = new google.maps.Polyline({
                         path: validPathPoints,
@@ -393,18 +480,42 @@ async function fetchAndDrawRouteShapes(routesParam) {
                     });
 
                     tempRoutePolylines[routeId].push(polyline);
-                    polyline.addListener('click', () => { if (G.visibleRealtimeRouteIds.has(routeId)) { handleRouteInteraction(routeId); }});
-                } catch (e) { console.error(`Error creating polyline for ${routeId}`, e); }
+
+                    const currentRouteIdForListener = routeId;
+                    polyline.addListener('click', () => {
+                        // console.log(`Polyline for route ${currentRouteIdForListener} clicked.`);
+                         if (G.visibleRealtimeRouteIds.has(currentRouteIdForListener)) {
+                              handleRouteInteraction(currentRouteIdForListener);
+                         } else {
+                              // console.log(`Ignoring click on polyline for hidden route ${currentRouteIdForListener}.`);
+                         }
+                    });
+
+                } catch (e) {
+                    console.error(`fetchAndDrawRouteShapes: Error creating polyline for ${routeId}`, e, validPathPoints);
+                }
             });
-            if (G.currentlyHighlightedRouteId === routeId && isRouteVisible) { applyPolylineStyles(routeId, true); }
+
+            if (G.currentlyHighlightedRouteId === routeId && isRouteVisible) {
+                 applyPolylineStyles(routeId, true);
+            }
         }
         G.setRoutePolylines(tempRoutePolylines);
-    } catch (error) { console.error("fetchAndDrawRouteShapes: General error:", error); }
+
+    } catch (error) {
+        console.error("fetchAndDrawRouteShapes: General error:", error);
+    }
+    // console.log("fetchAndDrawRouteShapes: FINISHED.");
 }
 
 export async function fetchAndUpdateMarkers(routesParam) {
-    // ... same as before, but ensure formatTimestamp and startAnimationLoop are correctly used from map_init.js imports
-    if (!routesParam) return;
+    if (!routesParam) {
+        // console.log("fetchAndUpdateMarkers: No routesParam, skipping fetch.");
+        return;
+    }
+
+    // console.log("fetchAndUpdateMarkers: Fetching data for routes:", routesParam);
+
     try {
         const response = await fetch(`/api/bus_data?routes=${routesParam}`);
         if (!response.ok) {
@@ -412,18 +523,25 @@ export async function fetchAndUpdateMarkers(routesParam) {
             return;
         }
         const busData = await response.json();
+        // console.log(`fetchAndUpdateMarkers: Received ${busData.length} vehicles.`);
+
         const updatedVehicleIds = new Set();
         const newBusMarkerObjects = { ...G.busMarkerObjects };
+
         busData.forEach(bus => {
             const vehicleId = bus.vehicle_id;
             const routeId = bus.route_id || 'N/A';
-            if (!vehicleId || vehicleId === 'N/A' || typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number' || !G.selectedRealtimeRouteIds.has(routeId)) return;
+
+            if (!vehicleId || vehicleId === 'N/A' || typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number' || !G.selectedRealtimeRouteIds.has(routeId)) {
+                return;
+            }
             updatedVehicleIds.add(vehicleId);
+
             const newPosition = { lat: bus.latitude, lng: bus.longitude };
             const bearing = Number(bus.bearing) ?? 0;
             const routeShortName = routeId.includes('_') ? routeId.split('_').pop() : routeId;
             const speedDisplay = bus.speed || 'N/A';
-            const timeDisplay = formatTimestamp(bus.raw_timestamp); 
+            const timeDisplay = formatTimestamp(bus.raw_timestamp);
             let markerColor = G.assignedRouteColors[routeId] || '#FF0000';
 
             const currentInfoContent = `
@@ -578,7 +696,7 @@ export async function fetchAndUpdateMarkers(routesParam) {
         });
 
         G.setBusMarkerObjects(newBusMarkerObjects);
-        startAnimationLoop(); // Call the imported startAnimationLoop
+        startAnimationLoop();
 
     } catch (error) {
         console.error("fetchAndUpdateMarkers: General error:", error);
@@ -589,7 +707,7 @@ function applyPolylineStyles(routeIdToStyle, isHighlight) {
     for (const polylineRouteId in G.routePolylines) {
         if (G.routePolylines.hasOwnProperty(polylineRouteId)) {
             G.routePolylines[polylineRouteId].forEach(polyline => {
-                if (polyline.getMap() === G.map) {
+                if (polyline.getMap() === G.map) { // Only style if visible
                     if (polylineRouteId === routeIdToStyle) {
                         polyline.setOptions({
                             strokeOpacity: G.HIGHLIGHTED_POLYLINE_OPACITY,
@@ -610,20 +728,40 @@ function applyPolylineStyles(routeIdToStyle, isHighlight) {
 }
 
 export function handleRouteInteraction(clickedRouteId) {
-    // ... same as before
-    if (!clickedRouteId || clickedRouteId === 'N/A') { if (G.currentlyHighlightedRouteId) { clearRouteHighlight(); } return; }
-    if (!G.visibleRealtimeRouteIds.has(clickedRouteId)) { if (G.currentlyHighlightedRouteId) { clearRouteHighlight(); } return; }
-    if (G.currentlyHighlightedRouteId === clickedRouteId) { clearRouteHighlight(); }
-    else { G.setCurrentlyHighlightedRouteId(clickedRouteId); applyPolylineStyles(clickedRouteId, true); }
+    // console.log(`Handling interaction for route: ${clickedRouteId}`);
+    if (!clickedRouteId || clickedRouteId === 'N/A') {
+        if (G.currentlyHighlightedRouteId) {
+            clearRouteHighlight();
+        }
+        return;
+    }
+
+    if (!G.visibleRealtimeRouteIds.has(clickedRouteId)) {
+        //  console.log(`Interaction ignored for route ${clickedRouteId} as it is not currently visible.`);
+         if (G.currentlyHighlightedRouteId) {
+              clearRouteHighlight();
+         }
+         return;
+    }
+
+    if (G.currentlyHighlightedRouteId === clickedRouteId) {
+        clearRouteHighlight();
+    } else {
+        G.setCurrentlyHighlightedRouteId(clickedRouteId);
+        applyPolylineStyles(clickedRouteId, true);
+        // console.log(`Route ${clickedRouteId} highlighted.`);
+    }
 }
 
 export function clearRouteHighlight() {
-    // ... same as before
-    if (!G.currentlyHighlightedRouteId) { return; }
+    if (!G.currentlyHighlightedRouteId) {
+        return;
+    }
+    // console.log("Clearing route highlight for:", G.currentlyHighlightedRouteId);
     for (const routeId in G.routePolylines) {
         if (G.routePolylines.hasOwnProperty(routeId)) {
              G.routePolylines[routeId].forEach(polyline => {
-                 if (polyline.getMap() === G.map) {
+                 if (polyline.getMap() === G.map) { // Only reset style if visible
                       polyline.setOptions({
                           strokeOpacity: G.DEFAULT_POLYLINE_OPACITY,
                           strokeWeight: G.DEFAULT_POLYLINE_WEIGHT,
@@ -634,7 +772,7 @@ export function clearRouteHighlight() {
         }
     }
     G.setCurrentlyHighlightedRouteId(null);
-    console.log("All route highlights cleared.");
+    // console.log("All route highlights cleared.");
 }
 
 console.log("map_data_layer.js: FINISHED PARSING.");

@@ -78,7 +78,7 @@ export function loadStateFromLocalStorage() {
              } else { localStorage.removeItem('assignedRouteColors'); }
         } catch (e) { console.error("Error parsing storedAssignedColors", e); localStorage.removeItem('assignedRouteColors');}
     }
-    G.setAssignedRouteColors(tempAssignedColors);
+    G.setAssignedRouteColors(tempAssignedRouteColors);
 
     console.log("loadStateFromLocalStorage: FINISHED. State loaded into G:", {
         operators: Array.from(G.selectedOperatorIds),
