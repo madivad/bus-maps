@@ -38,17 +38,18 @@
         <div class="modal-content">
             <span class="close-button" id="close-routes-modal">×</span>
             <h2>Select Routes</h2>
-            <div style="display: flex; justify-content: space-between;"> 
-                <div style="flex-basis: 55%;"> 
-            <div id="selected-routes-list-container">
-                <h4>Selected Routes:</h4>
-                <div id="selected-routes-list" class="modal-list fixed-list">
-                </div>
-            </div>
-            <hr>
+            <div style="display: flex; justify-content: space-between;">
+                {/* Wrap the two list sections for better flex control */}
+                <div class="routes-list-column">
+                    <div id="selected-routes-list-container">
+                        <h4>Selected Routes:</h4>
+                        <div id="selected-routes-list" class="modal-list fixed-list">
+                        </div>
+                    </div>
+                    <hr>
                     <h4>Available Routes: <span id="available-routes-count"></span></h4>
-            <input type="text" id="route-search-input" placeholder="Search routes..." style="width: 95%; margin-bottom: 10px;">
-            <div id="available-routes-list" class="modal-list scrollable-list">
+                    <input type="text" id="route-search-input" placeholder="Search routes..." style="width: 95%; margin-bottom: 10px;">
+                    <div id="available-routes-list" class="modal-list scrollable-list">
                     </div>
                 </div>
                 <div id="route-preview-container" style="flex-basis: 40%; border: 1px solid #ccc; margin-left: 15px; min-height: 200px; display: flex; align-items: center; justify-content: center; text-align: center;">

@@ -190,66 +190,59 @@ html, body {
     padding: 10px;
 }
 
-#routes-modal .modal-content {
-    max-width: 750px; /* Wider modal to accommodate preview */
+#routes-modal .modal-content > div[style*="display: flex"] { /* The main flex container for lists+preview */
+    /* Keep as row by default for wider screens */
 }
 
-#selected-routes-list-container h4,
-#routes-modal h4 {
-    margin-top: 5px;
-    margin-bottom: 5px;
-}
-#routes-modal hr {
-    margin: 15px 0;
-}
-
-/* NEW: Route Preview Container in Modal */
-#route-preview-container {
-    background-color: #f9f9f9;
-    overflow: hidden; /* Important if SVG scales beyond bounds */
-    padding: 5px;
-}
-#route-preview-container svg {
-    width: 100%;
-    height: 100%;
-    display: block; /* Remove extra space below SVG */
-}
-
-
-/* --- Options Modal Specifics --- */
-#options-content-area .option-item {
-    margin-bottom: 15px;
+/* NEW: Target the column for the lists specifically */
+#routes-modal .modal-content .routes-list-column {
     display: flex;
-    align-items: center;
-}
-#options-content-area .option-item label:first-child {
-    margin-right: 10px;
-    flex-shrink: 0;
-}
-#options-content-area .option-item select {
-    padding: 5px;
-    border-radius: 3px;
-    border: 1px solid #ccc;
-}
-#options-content-area hr {
-    margin: 10px 0 15px 0;
+    flex-direction: column; /* Stack selected and available lists vertically */
+    flex-basis: 55%; /* Or whatever basis it had */
+    /* Allow this column to take up available height if modal is tall */
+    /* This might not be strictly necessary if scrollable-list handles height well */
 }
 
-@media screen and (max-width: 780px) { /* Adjust breakpoint for wider modal */
-    #routes-modal .modal-content > div[style*="display: flex"] {
-        flex-direction: column; /* Stack list and preview vertically */
+.modal-list.fixed-list { /* For selected routes list */
+    max-height: 120px; 
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 10px;
+    margin-bottom: 10px;
+    flex-shrink: 0; /* Prevent selected list from shrinking too much */
+}
+
+.modal-list.scrollable-list { /* For available routes list */
+    /* max-height: 200px; /* Remove fixed max-height */
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 10px;
+    flex-grow: 1; /* Allow available routes list to grow and take remaining space in the column */
+    min-height: 100px; /* Ensure it has some minimum height */
+}
+
+
+/* Responsive adjustments */
+@media screen and (max-width: 780px) { 
+    #routes-modal .modal-content > div[style*="display: flex"] { /* Main container */
+        flex-direction: column; 
+    }
+    #routes-modal .modal-content .routes-list-column { /* List column */
+        flex-basis: auto; /* Reset basis when stacked */
+        width: 100%; /* Take full width when stacked */
+        /* Remove max-height if we want it to scroll with modal content */
     }
     #route-preview-container {
-        flex-basis: auto; /* Allow it to take natural height */
-        min-height: 150px; /* Adjust min-height for vertical stack */
+        flex-basis: auto; 
+        min-height: 150px; 
         margin-left: 0;
         margin-top: 15px;
+        width: 100%; /* Take full width when stacked */
     }
     #routes-modal .modal-content {
         max-width: 95%;
     }
 }
-
 @media screen and (max-width: 600px) {
     .modal-content {
         width: 95%;
