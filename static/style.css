@@ -252,8 +252,8 @@ html, body {
 }
 
 .modal-list.scrollable-list { /* For available routes list */
-    max-height: 200px; /* Adjust height */
-    overflow-y: auto;
+    max-height: 60vh; /* Adjust height */
+    /* overflow-y: auto; */
     border: 1px solid #eee;
     padding: 10px;
     flex-grow: 1; 
