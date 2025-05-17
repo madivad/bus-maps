@@ -86,33 +86,68 @@ html, body {
 }
 
 .head-container {
-    display: flex; /* Enables Flexbox layout */
-    justify-content: space-between; /* This pushes children to opposite ends */
-    align-items: baseline; /* Aligns items along their text baseline. 'center' is another option for vertical centering. */
-    padding: 10px 15px; /* Adds some spacing around the header content */
-    border-bottom: 1px solid #ccc; /* Optional: a light line below the header */
-    margin-bottom: 10px; /* Adds space between the header and the map */
-}
-
-.head-container h3 {
-    margin: 0; /* Removes default h3 margins which can affect alignment */
-    margin-right: 15px; /* Adds some space between the h3 and the timer */
-    font-size: 1.3em; /* Adjust font size as needed */
+    /* Replaced by #menu-bar */
 }
 
 #small-timer {
     margin: 0; /* Removes default div margins */
     font-size: 0.9em; /* Slightly smaller font for the timer */
-    color: #c7c7c7; /* Dark grey color for the timer text */
+    color: #777; /* Dark grey color for the timer text */
+    margin-left: 10px; /* Space from buttons */
+    flex-shrink: 0; /* Prevent timer from shrinking */
 }
 
-/* You can add styles for the future sidebar here later */
-
+/* --- Route Visibility Sidebar --- */
 #route-sidebar {
-    position: absolute;
-    top: 10px;
-    right: 15px;
+    position: fixed; /* Keep it on the side */
+    top: 45px; /* Below the menu bar */
+    right: 0;
+    bottom: 0;
+    width: 250px; /* Adjust width as needed */
+    background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent white */
+    border-left: 1px solid #ccc;
+    padding: 10px;
+    box-sizing: border-box;
+    z-index: 999; /* Below modals, above map */
+    overflow-y: auto; /* Scroll if list is long */
+    box-shadow: -2px 0 5px rgba(0,0,0,0.1); /* Subtle shadow */
 }
+
+#route-sidebar h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+#sidebar-routes-list {
+    /* No specific height needed, controlled by parent #route-sidebar overflow */
+}
+
+.sidebar-route-item { /* Use a class for each route item */
+    display: flex; /* Align items horizontally */
+    align-items: center; /* Vertically center items */
+    margin-bottom: 8px;
+    font-size: 0.85em; /* Slightly smaller font */
+    cursor: pointer; /* Indicate clickable area */
+}
+
+.sidebar-route-item input[type="checkbox"] {
+    margin-right: 8px;
+    flex-shrink: 0; /* Prevent checkbox from shrinking */
+}
+
+.route-color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%; /* Makes it a circle */
+    margin-right: 8px; /* Space between dot and checkbox */
+    border: 1px solid #777; /* Optional: slight border for light colors */
+    flex-shrink: 0; /* Prevent dot from shrinking if label text is long */
+}
+
 
 .close-button:hover,
 .close-button:focus {
@@ -132,21 +167,11 @@ html, body {
 }
 
 .modal-list.fixed-list {
-    max-height: 350px; /* Adjust as needed */
+    max-height: 150px; /* Reduced height for selected list in modal */
     overflow-y: auto;
     border: 1px solid #eee;
     padding: 10px;
     margin-bottom: 10px;
-}
-
-.route-color-dot {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%; /* Makes it a circle */
-    margin-right: 8px; /* Space between dot and checkbox */
-    border: 1px solid #777; /* Optional: slight border for light colors */
-    flex-shrink: 0; /* Prevent dot from shrinking if label text is long */
 }
 
 .modal-list.scrollable-list {
@@ -172,12 +197,12 @@ html, body {
 /* --- Options Modal Specifics --- */
 #options-content-area .option-item {
     margin-bottom: 15px;
-    display: flex; 
+    display: flex;
     align-items: center;
 }
 #options-content-area .option-item label:first-child { /* For labels NOT wrapping an input */
     margin-right: 10px;
-    flex-shrink: 0; 
+    flex-shrink: 0;
 }
 #options-content-area .option-item select {
     padding: 5px;
@@ -196,5 +221,8 @@ html, body {
     }
     #map-title {
         max-width: 30%; /* Smaller title on small screens */
+    }
+    #route-sidebar {
+        width: 180px; /* Make sidebar narrower on small screens */
     }
 }

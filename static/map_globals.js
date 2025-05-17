@@ -3,14 +3,15 @@ console.log("map_globals.js: PARSING.");
 
 // --- Map Core Variables ---
 export let map;
-export let busMarkerObjects = {};
-export let routePolylines = {};
+export let busMarkerObjects = {}; // Stores objects like { gmapMarker, infowindow, isAnimating, startPos, targetPos, startTime, route_id }
+export let routePolylines = {}; // Stores { route_id: [polylineToShape1, polylineToShape2, ...]}
 export let animationFrameId = null;
 export let dataFetchIntervalId = null;
 
 // --- Application State Variables ---
 export let selectedOperatorIds = new Set();
-export let selectedRealtimeRouteIds = new Set();
+export let selectedRealtimeRouteIds = new Set(); // Routes selected in the modal
+export let visibleRealtimeRouteIds = new Set(); // Subset of selected routes currently shown on map/sidebar checkbox checked
 export const ROUTE_COLORS = ['#FF5733', '#3375FF', '#33FF57', '#FFC300', '#C70039', '#900C3F', '#581845', '#FF8C00', '#00CED1', '#DA70D6', '#20B2AA', '#FF4500', '#4682B4', '#8A2BE2', '#D2691E'];
 export let assignedRouteColors = {}; // route_id -> color string
 export let currentMapOptions = {
@@ -18,7 +19,7 @@ export let currentMapOptions = {
     liveTrackingEnabled: true,
     showRoutePathsEnabled: true
 };
-export let allFetchedRoutesForCurrentOperators = []; // Cache for routes modal
+export let allFetchedRoutesForCurrentOperators = []; // Cache for routes modal and sidebar
 
 // --- DOM Element References ---
 // These will be initialized in map_init.js
@@ -30,6 +31,7 @@ export let selectedRoutesListDiv, availableRoutesListDiv, saveRoutesBtn, routeSe
 export let mapTitleH3;
 export let updateFrequencySelect, toggleLiveTrackingCheckbox, toggleRoutePathsCheckbox, saveOptionsBtn;
 export let timerDisplayElement;
+export let sidebarDiv, sidebarRoutesListDiv; // NEW: Sidebar elements
 
 // --- Polyline Style Constants ---
 export const DEFAULT_POLYLINE_OPACITY = 0.35;
@@ -45,25 +47,25 @@ export const HIGHLIGHTED_POLYLINE_ZINDEX = 5;
 export const DEEMPHASIZED_POLYLINE_OPACITY = 0.15;
 export const DEEMPHASIZED_POLYLINE_WEIGHT = 3;
 export const DEEMPHASIZED_POLYLINE_ZINDEX = DEFAULT_POLYLINE_ZINDEX;
-// DEEMPHASIZED_POLYLINE_ZINDEX can remain DEFAULT_POLYLINE_ZINDEX
+
 
 // State variable to track the currently highlighted route
 export let currentlyHighlightedRouteId = null;
 export function setCurrentlyHighlightedRouteId(routeId) { currentlyHighlightedRouteId = routeId; }
 
 // --- Countdown Timer Variables ---
-export const ANIMATION_DURATION_FACTOR = 0.5; // Animate for 90% of the update interval
-export const JS_DATA_REFRESH_INTERVAL_SECONDS = 10;
-export const FETCH_API_AT_COUNT = 1; // Fetch when countdown reaches this value
+export const ANIMATION_DURATION_FACTOR = 0.5; // Animate for 90% of the update interval (Adjusted comment)
+export const JS_DATA_REFRESH_INTERVAL_SECONDS = 10; // The countdown timer length
+export const FETCH_API_AT_COUNT = 1; // Fetch when countdown reaches this value (e.g., 1 second left)
 export let countdownValue = JS_DATA_REFRESH_INTERVAL_SECONDS;
 export let countdownIntervalId = null;
 export let isFetchingApiData = false; // Flag to prevent concurrent early fetches
 
 // --- InfoWindow Management ---
 export let currentlyOpenInfoWindow = null;
-export function setCurrentlyOpenInfoWindow(iw) { 
+export function setCurrentlyOpenInfoWindow(iw) {
     // console.log("Setting currentlyOpenInfoWindow to:", iw); // Optional debug
-    currentlyOpenInfoWindow = iw; 
+    currentlyOpenInfoWindow = iw;
 }
 
 // --- Functions to update exported let variables (since direct import assignment is not allowed for `let`) ---
@@ -75,6 +77,7 @@ export function setAnimationFrameId(id) { animationFrameId = id; }
 export function setDataFetchIntervalId(id) { dataFetchIntervalId = id; }
 export function setSelectedOperatorIds(newSet) { selectedOperatorIds = newSet; }
 export function setSelectedRealtimeRouteIds(newSet) { selectedRealtimeRouteIds = newSet; }
+export function setVisibleRealtimeRouteIds(newSet) { visibleRealtimeRouteIds = newSet; } // NEW
 export function setAssignedRouteColors(newObj) { assignedRouteColors = newObj; }
 export function setCurrentMapOptions(newOptions) { currentMapOptions = newOptions; }
 export function setAllFetchedRoutesForCurrentOperators(newArray) { allFetchedRoutesForCurrentOperators = newArray; }
@@ -100,6 +103,9 @@ export function setToggleLiveTrackingCheckbox(el) { toggleLiveTrackingCheckbox =
 export function setToggleRoutePathsCheckbox(el) { toggleRoutePathsCheckbox = el; }
 export function setSaveOptionsBtn(el) { saveOptionsBtn = el; }
 export function setTimerDisplayElement(el) { timerDisplayElement = el; }
+export function setSidebarDiv(el) { sidebarDiv = el; } // NEW
+export function setSidebarRoutesListDiv(el) { sidebarRoutesListDiv = el; } // NEW
+
 
 export function setCountdownValue(val) { countdownValue = val; }
 export function setCountdownIntervalId(id) { countdownIntervalId = id; }
