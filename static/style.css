@@ -85,32 +85,28 @@ html, body {
     font-weight: bold;
 }
 
-.head-container {
-    /* Replaced by #menu-bar */
-}
-
 #small-timer {
-    margin: 0; /* Removes default div margins */
-    font-size: 0.9em; /* Slightly smaller font for the timer */
-    color: #777; /* Dark grey color for the timer text */
-    margin-left: 10px; /* Space from buttons */
-    flex-shrink: 0; /* Prevent timer from shrinking */
+    margin: 0;
+    font-size: 0.9em;
+    color: #777;
+    margin-left: 10px;
+    flex-shrink: 0;
 }
 
 /* --- Route Visibility Sidebar --- */
 #route-sidebar {
-    position: fixed; /* Keep it on the side */
-    top: 45px; /* Below the menu bar */
+    position: fixed;
+    top: 45px;
     right: 0;
     bottom: 0;
-    width: 250px; /* Adjust width as needed */
-    background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent white */
+    width: 250px;
+    background-color: rgba(255, 255, 255, 0.9);
     border-left: 1px solid #ccc;
     padding: 10px;
     box-sizing: border-box;
-    z-index: 999; /* Below modals, above map */
-    overflow-y: auto; /* Scroll if list is long */
-    box-shadow: -2px 0 5px rgba(0,0,0,0.1); /* Subtle shadow */
+    z-index: 999;
+    overflow-y: auto;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.1);
 }
 
 #route-sidebar h4 {
@@ -122,30 +118,29 @@ html, body {
 }
 
 #sidebar-routes-list {
-    /* No specific height needed, controlled by parent #route-sidebar overflow */
 }
 
-.sidebar-route-item { /* Use a class for each route item */
-    display: flex; /* Align items horizontally */
-    align-items: center; /* Vertically center items */
+.sidebar-route-item {
+    display: flex;
+    align-items: center;
     margin-bottom: 8px;
-    font-size: 0.85em; /* Slightly smaller font */
-    cursor: pointer; /* Indicate clickable area */
+    font-size: 0.85em;
+    cursor: pointer;
 }
 
 .sidebar-route-item input[type="checkbox"] {
     margin-right: 8px;
-    flex-shrink: 0; /* Prevent checkbox from shrinking */
+    flex-shrink: 0;
 }
 
 .route-color-dot {
     display: inline-block;
     width: 12px;
     height: 12px;
-    border-radius: 50%; /* Makes it a circle */
-    margin-right: 8px; /* Space between dot and checkbox */
-    border: 1px solid #777; /* Optional: slight border for light colors */
-    flex-shrink: 0; /* Prevent dot from shrinking if label text is long */
+    border-radius: 50%;
+    margin-right: 8px;
+    border: 1px solid #777;
+    flex-shrink: 0;
 }
 
 
@@ -165,24 +160,38 @@ html, body {
 .modal-list input[type="checkbox"] {
     margin-right: 8px;
 }
+/* Style for route items in the "Available Routes" list to make them look clickable for preview */
+#available-routes-list .modal-route-item {
+    padding: 4px 2px;
+    border-radius: 3px;
+    cursor: pointer; /* Indicate it's clickable for preview */
+}
+#available-routes-list .modal-route-item:hover {
+    background-color: #f0f0f0; /* Highlight on hover */
+}
+#available-routes-list .modal-route-item.previewing {
+    background-color: #e0e8ff; /* Different background if it's the one being previewed */
+    font-weight: bold;
+}
 
-.modal-list.fixed-list {
-    max-height: 150px; /* Reduced height for selected list in modal */
+
+.modal-list.fixed-list { /* For selected routes list */
+    max-height: 120px; /* Adjust height */
     overflow-y: auto;
     border: 1px solid #eee;
     padding: 10px;
     margin-bottom: 10px;
 }
 
-.modal-list.scrollable-list {
-    max-height: 250px; /* Adjust as needed */
+.modal-list.scrollable-list { /* For available routes list */
+    max-height: 200px; /* Adjust height */
     overflow-y: auto;
     border: 1px solid #eee;
     padding: 10px;
 }
 
 #routes-modal .modal-content {
-    max-width: 600px; /* Wider modal for routes */
+    max-width: 750px; /* Wider modal to accommodate preview */
 }
 
 #selected-routes-list-container h4,
@@ -194,13 +203,26 @@ html, body {
     margin: 15px 0;
 }
 
+/* NEW: Route Preview Container in Modal */
+#route-preview-container {
+    background-color: #f9f9f9;
+    overflow: hidden; /* Important if SVG scales beyond bounds */
+    padding: 5px;
+}
+#route-preview-container svg {
+    width: 100%;
+    height: 100%;
+    display: block; /* Remove extra space below SVG */
+}
+
+
 /* --- Options Modal Specifics --- */
 #options-content-area .option-item {
     margin-bottom: 15px;
     display: flex;
     align-items: center;
 }
-#options-content-area .option-item label:first-child { /* For labels NOT wrapping an input */
+#options-content-area .option-item label:first-child {
     margin-right: 10px;
     flex-shrink: 0;
 }
@@ -213,16 +235,30 @@ html, body {
     margin: 10px 0 15px 0;
 }
 
-/* Responsive adjustments (optional example) */
+@media screen and (max-width: 780px) { /* Adjust breakpoint for wider modal */
+    #routes-modal .modal-content > div[style*="display: flex"] {
+        flex-direction: column; /* Stack list and preview vertically */
+    }
+    #route-preview-container {
+        flex-basis: auto; /* Allow it to take natural height */
+        min-height: 150px; /* Adjust min-height for vertical stack */
+        margin-left: 0;
+        margin-top: 15px;
+    }
+    #routes-modal .modal-content {
+        max-width: 95%;
+    }
+}
+
 @media screen and (max-width: 600px) {
     .modal-content {
         width: 95%;
         margin: 10% auto;
     }
     #map-title {
-        max-width: 30%; /* Smaller title on small screens */
+        max-width: 30%;
     }
     #route-sidebar {
-        width: 180px; /* Make sidebar narrower on small screens */
+        width: 180px;
     }
 }
