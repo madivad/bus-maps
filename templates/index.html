@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html>
 <head>
     <title>Realtime Bus Map</title>
@@ -11,62 +11,60 @@
             <button id="btn-operators">Operators</button>
             <button id="btn-routes" disabled>Routes</button> 
             <button id="btn-options">Options</button>
-            <div id="small-timer"></div> {# Updated: This is now just a placeholder updated by JS #}
+            <div id="small-timer"></div>
             <h3 id="map-title">Realtime Bus Positions</h3> 
         </div>
     </div>
 
-    <!-- Map Container -->
     <div id="map"></div>
 
-    <!-- NEW: Route Visibility Sidebar -->
     <div id="route-sidebar" style="display:none;">
         <h4>Tracked Routes</h4>
         <div id="sidebar-routes-list">
-            <!-- List of tracked routes with checkboxes will be populated here by JS -->
         </div>
     </div>
 
-    <!-- EXISTING: Operator Selection Modal -->
     <div id="operators-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <span class="close-button" id="close-operators-modal">×</span>
             <h2>Select Operators</h2>
             <div id="operators-list" class="modal-list">
-                <!-- Operator checkboxes will be populated here by JS -->
             </div>
             <button id="save-operators">Save & Update</button>
         </div>
     </div>
 
-    <!-- EXISTING: Route Selection Modal -->
     <div id="routes-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <span class="close-button" id="close-routes-modal">×</span>
-            <h2>Select Routes</h2>
-            <div id="selected-routes-list-container">
-                <h4>Selected Routes:</h4>
-                <div id="selected-routes-list" class="modal-list fixed-list">
-                    <!-- Selected routes will appear here -->
+            <!-- <h2>Select Routes</h2> -->
+            <div class="routes-modal-body-flex-container" style="display: flex; justify-content: space-between;">
+                <div class="routes-list-column">
+                    <h2>Select Routes</h2>
+                    <div id="selected-routes-list-container">
+                        <h4>Selected Routes:</h4>
+                        <div id="selected-routes-list" class="modal-list fixed-list">
+                        </div>
+                    </div>
+                    <hr>
+                    <h4>Available Routes: <span id="available-routes-count"></span></h4>
+                    <input type="text" id="route-search-input" placeholder="Search routes..." style="width: 95%; margin-bottom: 10px;">
+                    <div id="available-routes-list" class="modal-list scrollable-list">
+                    </div>
+                </div>
+                <div id="route-preview-container" style="border: 1px solid #ccc; margin-left: 15px; min-height: 200px; display: flex; align-items: center; justify-content: center; text-align: center;">
+                    Click an available route to preview its path.
                 </div>
             </div>
-            <hr>
-            <h4>Available Routes:</h4>
-            <input type="text" id="route-search-input" placeholder="Search routes..." style="width: 95%; margin-bottom: 10px;">
-            <div id="available-routes-list" class="modal-list scrollable-list">
-                <!-- Available route checkboxes will be populated here by JS -->
-            </div>
-            <button id="save-routes">Save & Update Map</button>
+            <button id="save-routes" style="margin-top: 15px;">Save & Update Map</button>
         </div>
     </div>
 
-    <!-- EXISTING: Options Modal -->
     <div id="options-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <span class="close-button" id="close-options-modal">×</span>
             <h2>Map Options</h2>
             <div id="options-content-area">
-                <!-- Options will be populated here -->
                 <div class="option-item">
                     <label for="update-frequency">Update Frequency:</label>
                     <select id="update-frequency">
@@ -95,8 +93,6 @@
         </div>
     </div>
 
-    <!-- Main application script - now a module -->
     <script type="module" src="{{ url_for('static', filename='map_init.js') }}"></script>
-    <!-- The Google Maps API script will be loaded dynamically by map_init.js -->
 </body>
 </html>

@@ -40,42 +40,48 @@ html, body {
     opacity: 0.6;
 }
 
-#map-title { /* Replaces old h3 */
+#map-title {
     margin: 0;
-    margin-left: auto; /* Pushes title to the right */
-    margin-right: 20px; /* Some spacing from edge */
+    margin-left: auto;
+    margin-right: 20px;
     font-size: 1.0em;
     color: #333;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 50%; /* Prevent title from taking too much space */
+    max-width: 50%;
 }
 
 
 /* --- Modal Styling --- */
 .modal {
-    display: none; /* Hidden by default, JS will toggle */
-    position: fixed; /* Stay in place */
-    z-index: 1001; /* Above menu bar */
+    display: none; 
+    position: fixed; 
+    z-index: 1001; 
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    overflow: auto; /* Enable scroll if content is too long */
-    background-color: rgba(0,0,0,0.5); /* Black w/ opacity */
-    padding-top: 60px; /* Place modal below fixed header */
+    /* overflow: auto; /* Let modal-content handle its own overflow */
+    background-color: rgba(0,0,0,0.5); 
+    padding-top: 3vh; /* Use viewport units for a bit more flexibility */
+    padding-bottom: 3vh;
+    box-sizing: border-box; /* Include padding in height calculation */
 }
 
 .modal-content {
     background-color: #fefefe;
-    margin: 5% auto; /* 5% from the top and centered */
+    margin: 0 auto; /* Center horizontally, vertical margin handled by .modal padding */
     padding: 20px;
     border: 1px solid #888;
-    width: 80%; /* Could be more or less, depending on screen size */
-    max-width: 500px; /* Max width */
+    width: 75%; /* Default width for modals like options/operators */
+    /* max-width: 500px;  */
     border-radius: 8px;
     position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    max-height: 94vh; 
+    display: flex; 
+    flex-direction: column; 
 }
 
 .close-button {
@@ -83,34 +89,38 @@ html, body {
     float: right;
     font-size: 28px;
     font-weight: bold;
+    line-height: 1; /* Ensure it doesn't take too much vertical space */
 }
 
-.head-container {
-    /* Replaced by #menu-bar */
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 #small-timer {
-    margin: 0; /* Removes default div margins */
-    font-size: 0.9em; /* Slightly smaller font for the timer */
-    color: #777; /* Dark grey color for the timer text */
-    margin-left: 10px; /* Space from buttons */
-    flex-shrink: 0; /* Prevent timer from shrinking */
+    margin: 0;
+    font-size: 0.9em;
+    color: #777;
+    margin-left: 10px;
+    flex-shrink: 0;
 }
 
 /* --- Route Visibility Sidebar --- */
 #route-sidebar {
-    position: fixed; /* Keep it on the side */
-    top: 45px; /* Below the menu bar */
+    position: fixed;
+    top: 45px;
     right: 0;
     bottom: 0;
-    width: 250px; /* Adjust width as needed */
-    background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent white */
+    width: 250px;
+    background-color: rgba(255, 255, 255, 0.9);
     border-left: 1px solid #ccc;
     padding: 10px;
     box-sizing: border-box;
-    z-index: 999; /* Below modals, above map */
-    overflow-y: auto; /* Scroll if list is long */
-    box-shadow: -2px 0 5px rgba(0,0,0,0.1); /* Subtle shadow */
+    z-index: 999;
+    overflow-y: auto;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.1);
 }
 
 #route-sidebar h4 {
@@ -121,86 +131,176 @@ html, body {
     padding-bottom: 5px;
 }
 
-#sidebar-routes-list {
-    /* No specific height needed, controlled by parent #route-sidebar overflow */
-}
-
-.sidebar-route-item { /* Use a class for each route item */
-    display: flex; /* Align items horizontally */
-    align-items: center; /* Vertically center items */
+.sidebar-route-item {
+    display: flex; /* Already flex */
+    align-items: center; /* Already center */
     margin-bottom: 8px;
-    font-size: 0.85em; /* Slightly smaller font */
-    cursor: pointer; /* Indicate clickable area */
+    font-size: 0.85em; 
+    /* cursor: pointer; /* The label inside will now have cursor: pointer */
+    /* If you want a background on hover for the whole item: */
+    /* padding: 2px 0; */
+    /* border-radius: 3px; */
+}
+/* .sidebar-route-item:hover { */
+    /* background-color: #f0f0f0; */
+/* } */
+
+
+.sidebar-route-item label { /* Style for the new inner label */
+    display: flex; /* Align checkbox, dot, and text within the label */
+    align-items: center;
+    cursor: pointer;
+    flex-grow: 1; /* Make the label take up space, good for clickability */
+    /* Prevent text from pushing checkbox/dot too far if an item is very narrow */
+    overflow: hidden; 
+    text-overflow: ellipsis;
+    white-space: nowrap; /* Prevent long names from wrapping to multiple lines in the sidebar item */
 }
 
 .sidebar-route-item input[type="checkbox"] {
-    margin-right: 8px;
-    flex-shrink: 0; /* Prevent checkbox from shrinking */
+    margin-right: 6px;
+    flex-shrink: 0;
 }
 
 .route-color-dot {
     display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%; /* Makes it a circle */
-    margin-right: 8px; /* Space between dot and checkbox */
-    border: 1px solid #777; /* Optional: slight border for light colors */
-    flex-shrink: 0; /* Prevent dot from shrinking if label text is long */
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    border: 1px solid #777;
+    flex-shrink: 0;
 }
 
+/* --- Route Selection Modal Specifics --- */
+#routes-modal .modal-content {
+    width: 75%; 
+    max-width: 900px; 
+    /* min-height: 400px; /* Rely on content and max-height */
+    /* I'm not sure abou t this one, I might put them back */
+    /* 
+    display: flex; 
+    flex-direction: column; 
+    */
 
-.close-button:hover,
-.close-button:focus {
-    color: black;
-    text-decoration: none;
-    cursor: pointer;
 }
 
-.modal-list label {
-    display: block; /* Each checkbox on a new line */
-    margin-bottom: 8px;
+#routes-modal .modal-content > h2 { 
+    flex-shrink: 0; 
+    margin-bottom: 15px; 
+}
+
+/* This is the main flex row container for lists column and preview pane */
+/* Needs class name from index.html: routes-modal-body-flex-container */
+#routes-modal .modal-content > div.routes-modal-body-flex-container { 
+    flex-grow: 1; 
+    display: flex; 
+    min-height: 0; /* CRITICAL for allowing children to scroll within a flex item */
+    overflow: hidden; 
+}
+
+#routes-modal .modal-content .routes-list-column {
+    display: flex;
+    flex-direction: column;
+    flex-basis: 50%; 
+    margin-right: 15px; 
+    min-width: 280px; 
+    min-height: 0; 
+    /* overflow: hidden; /* in case I need to switch. routes list overflow */
+}
+
+#route-preview-container {
+    flex-basis: 45%; /* Adjust basis, was 40% */
+    border: 1px solid #ccc;
+    min-height: 250px; 
+    max-height: 100%; /* Occupy full height of its parent flex row */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background-color: #f9f9f9;
+    overflow: hidden; /* Keep hidden to clip SVG if it ever miscalculates bounds */
+    padding: 5px;
+    box-sizing: border-box;
+}
+#route-preview-container svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.modal-list label { /* General label styling for checkboxes inside lists */
+    display: flex; /* Use flex for better alignment of dot, checkbox, text */
+    align-items: center;
+    margin-bottom: 6px; /* Reduced margin */
     cursor: pointer;
-    font-size: 0.9em; /* ADDED: Reduced font size for labels */
+    font-size: 0.85em; /* Slightly smaller font for route names */
+    line-height: 1.3;
 }
 .modal-list input[type="checkbox"] {
-    margin-right: 8px;
+    margin-right: 6px; /* Space between checkbox and text */
+    flex-shrink: 0;
 }
 
-.modal-list.fixed-list {
-    max-height: 150px; /* Reduced height for selected list in modal */
+/* Specific styling for items in the "Available Routes" list to indicate click for preview */
+#available-routes-list .modal-route-item {
+    padding: 4px 2px;
+    border-radius: 3px;
+    /* cursor: pointer; /* Label itself is already pointer */
+}
+#available-routes-list .modal-route-item:hover label { 
+    background-color: #f0f0f0; 
+}
+#available-routes-list .modal-route-item.previewing label { 
+    background-color: #e0e8ff; 
+    font-weight: bold;
+}
+
+.modal-list.fixed-list { /* For "Selected Routes" list */
+    max-height: 150px; /* Give it a bit more space */
     overflow-y: auto;
     border: 1px solid #eee;
     padding: 10px;
     margin-bottom: 10px;
+    flex-shrink: 0;
 }
 
-.modal-list.scrollable-list {
-    max-height: 250px; /* Adjust as needed */
-    overflow-y: auto;
+.modal-list.scrollable-list { /* For available routes list */
+    max-height: 60vh; /* Adjust height */
+    /* overflow-y: auto; */
     border: 1px solid #eee;
     padding: 10px;
-}
-
-#routes-modal .modal-content {
-    max-width: 600px; /* Wider modal for routes */
+    flex-grow: 1; 
+    min-height: 150px; /* Increased min-height */
 }
 
 #selected-routes-list-container h4,
-#routes-modal h4 {
+#routes-modal h4 { /* Titles for sections within routes modal */
     margin-top: 5px;
     margin-bottom: 5px;
+    font-size: 0.95em;
+    flex-shrink: 0; 
 }
-#routes-modal hr {
-    margin: 15px 0;
+#routes-modal input#route-search-input { 
+    flex-shrink: 0; 
+    margin-bottom: 10px; 
 }
 
-/* --- Options Modal Specifics --- */
+#routes-modal hr {
+    margin: 10px 0; 
+    flex-shrink: 0;
+}
+#routes-modal #save-routes { /* Button at the bottom */
+    margin-top: 15px;
+    flex-shrink: 0; /* Prevent button from shrinking */
+}
+
 #options-content-area .option-item {
     margin-bottom: 15px;
     display: flex;
     align-items: center;
 }
-#options-content-area .option-item label:first-child { /* For labels NOT wrapping an input */
+#options-content-area .option-item label:first-child {
     margin-right: 10px;
     flex-shrink: 0;
 }
@@ -213,16 +313,83 @@ html, body {
     margin: 10px 0 15px 0;
 }
 
-/* Responsive adjustments (optional example) */
-@media screen and (max-width: 600px) {
-    .modal-content {
-        width: 95%;
-        margin: 10% auto;
+/* --- Responsive Adjustments --- */
+
+/* Medium screens and up (where side-by-side preview is good) */
+@media screen and (min-width: 769px) {
+    #routes-modal .modal-content {
+        width: 75%;
+        max-width: 1000px; /* Can go wider if screen allows */
+    }
+    #routes-modal .modal-content .routes-list-column { flex-basis: 45%; }
+    #route-preview-container { flex-basis: 55%; }
+}
+
+
+/* Smaller screens (tablets in portrait, large phones) */
+@media screen and (max-width: 768px) {
+    .modal-content { 
+        width: 90%; 
+        margin: 2vh auto; 
+        max-height: 96vh; 
+    }
+    #routes-modal .modal-content {
+        width: 95%; 
+        max-width: none; 
+    }
+
+    /* Change main body of routes modal to column */
+    /* Target using the added class: routes-modal-body-flex-container */
+    #routes-modal .modal-content > div.routes-modal-body-flex-container { 
+        flex-direction: column; 
+        overflow-y: auto; 
+    }
+    #routes-modal .modal-content .routes-list-column { 
+        flex-basis: auto; 
+        width: 100%; 
+        margin-right: 0; 
+        margin-bottom: 15px; 
+        min-height: 200px; 
+        max-height: 50vh; 
+        overflow:hidden; 
+    }
+    .modal-list.scrollable-list { 
+        max-height: none; 
+    }
+    #route-preview-container {
+        flex-basis: auto; 
+        min-height: 200px; 
+        max-height: 40vh; /* I migth remove this later */
+        margin-left: 0;
+        margin-top: 0; 
+        width: 100%; 
     }
     #map-title {
-        max-width: 30%; /* Smaller title on small screens */
+        max-width: 40%; 
     }
-    #route-sidebar {
-        width: 180px; /* Make sidebar narrower on small screens */
+}
+
+/* Very small screens (mobiles) */
+@media screen and (max-width: 480px) {
+    .modal-content {
+        width: 98%; 
+        padding: 10px;
+        max-height: 96vh;
     }
+     #routes-modal .modal-content {
+        width: 98%;
+        padding: 10px;
+    }
+    #routes-modal .modal-content .routes-list-column {
+        max-height: 45vh; 
+    }
+    #route-preview-container {
+        min-height: 180px;
+        max-height: 35vh; 
+    }
+
+    #route-sidebar { width: 160px; }
+    #map-title { font-size: 0.9em; max-width: 30%;}
+    .modal-list label { font-size: 0.8em; }
+    #routes-modal h4 { font-size: 0.9em; }
 }

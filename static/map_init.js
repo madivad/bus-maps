@@ -2,9 +2,15 @@
 console.log("map_init.js: PARSING.");
 
 import * as G from './map_globals.js'; // G for Globals
-import { loadStateFromLocalStorage, openOperatorsModal, openRoutesModal, openOptionsModal, handleSaveOperators, handleSaveRoutes, handleSaveOptions, filterAvailableRoutes } from './map_state_modals.js';
-// Import specific functions needed from map_data_layer
-import { updateMapData, fetchAndUpdateMarkers, populateSidebar, handleRouteInteraction, clearRouteHighlight } from './map_data_layer.js'; // Removed startAnimationLoop from here
+import { loadStateFromLocalStorage, 
+         openOperatorsModal, 
+         openRoutesModal, 
+         openOptionsModal, 
+         handleSaveOperators, 
+         handleSaveRoutes, 
+         handleSaveOptions, 
+         filterAvailableRoutes } from './map_state_modals.js';
+import { updateMapData, fetchAndUpdateMarkers, populateSidebar, handleRouteInteraction, clearRouteHighlight } from './map_data_layer.js';
 
 
 // Function to dynamically load the Google Maps script
@@ -70,7 +76,7 @@ async function initMapGoogleCallback() {
 
     initializeDOMElements();
     addEventListeners();
-    loadStateFromLocalStorage();
+    await loadStateFromLocalStorage();
 
     console.log(">>> initMapGoogleCallback: Initial G.selectedOperatorIds size:", G.selectedOperatorIds.size);
     console.log(">>> initMapGoogleCallback: Initial G.selectedRealtimeRouteIds size:", G.selectedRealtimeRouteIds.size);
@@ -95,7 +101,7 @@ async function initMapGoogleCallback() {
                  clearRouteHighlight();
             }
         });
-         startAnimationLoop(); // Call the local startAnimationLoop
+         startAnimationLoop();
      } else {
          console.log(">>> initMapGoogleCallback: Map object NOT created. Skipping map data initialization.");
          if (G.mapTitleH3) G.mapTitleH3.textContent = 'Map failed to load';
@@ -138,6 +144,9 @@ function initializeDOMElements() {
     G.setSaveOptionsBtn(document.getElementById('save-options'));
     G.setSidebarDiv(document.getElementById('route-sidebar'));
     G.setSidebarRoutesListDiv(document.getElementById('sidebar-routes-list'));
+    G.setRoutePreviewContainerDiv(document.getElementById('route-preview-container'));
+    G.setAvailableRoutesCountSpan(document.getElementById('available-routes-count')); 
+
 
     if (G.updateFrequencySelect) G.updateFrequencySelect.value = G.currentMapOptions.updateIntervalMs.toString();
     if (G.toggleLiveTrackingCheckbox) G.toggleLiveTrackingCheckbox.checked = G.currentMapOptions.liveTrackingEnabled;
@@ -152,7 +161,11 @@ function addEventListeners() {
     if (G.btnRoutes) G.btnRoutes.addEventListener('click', openRoutesModal);
     if (G.btnOptions) G.btnOptions.addEventListener('click', openOptionsModal);
     if (G.closeOperatorsModalBtn) G.closeOperatorsModalBtn.addEventListener('click', () => { if(G.operatorsModal) G.operatorsModal.style.display = "none"; });
-    if (G.closeRoutesModalBtn) G.closeRoutesModalBtn.addEventListener('click', () => { if(G.routesModal) G.routesModal.style.display = "none"; });
+    if (G.closeRoutesModalBtn) G.closeRoutesModalBtn.addEventListener('click', () => {
+        if(G.routesModal) G.routesModal.style.display = "none";
+        G.setIsPreviewingRouteId(null);
+        if (G.routePreviewContainerDiv) G.routePreviewContainerDiv.innerHTML = 'Click an available route to preview its path.';
+    });
     if (G.closeOptionsModalBtn) G.closeOptionsModalBtn.addEventListener('click', () => { if(G.optionsModal) G.optionsModal.style.display = "none"; });
     if (G.saveOperatorsBtn) G.saveOperatorsBtn.addEventListener('click', handleSaveOperators);
     if (G.saveRoutesBtn) G.saveRoutesBtn.addEventListener('click', handleSaveRoutes);
@@ -161,7 +174,11 @@ function addEventListeners() {
 
     window.addEventListener('click', (event) => {
         if (G.operatorsModal && event.target === G.operatorsModal) G.operatorsModal.style.display = "none";
-        if (G.routesModal && event.target === G.routesModal) G.routesModal.style.display = "none";
+        if (G.routesModal && event.target === G.routesModal) {
+            G.routesModal.style.display = "none";
+            G.setIsPreviewingRouteId(null); // Clear preview
+            if (G.routePreviewContainerDiv) G.routePreviewContainerDiv.innerHTML = 'Click an available route to preview its path.';
+        }
         if (G.optionsModal && event.target === G.optionsModal) G.optionsModal.style.display = "none";
     });
     console.log("addEventListeners: FINISHED.");
@@ -176,11 +193,11 @@ function updateTimerDisplay() {
 }
 
 function startOneSecondCountdown() {
-    console.log("startOneSecondCountdown: STARTED.");
+    // console.log("startOneSecondCountdown: STARTED."); // Can be noisy
     if (G.countdownIntervalId) {
         clearInterval(G.countdownIntervalId);
         G.setCountdownIntervalId(null);
-        console.log("startOneSecondCountdown: Cleared existing countdown interval.");
+        // console.log("startOneSecondCountdown: Cleared existing countdown interval.");
     }
     G.setCountdownValue(G.JS_DATA_REFRESH_INTERVAL_SECONDS);
     updateTimerDisplay();
@@ -219,8 +236,6 @@ function resetCountdown() {
     updateTimerDisplay();
 }
 
-// --- Marker Animation ---
-// REINSTATED and EXPORTED startAnimationLoop and animateMarkers
 function animateMarkers(timestamp) {
     let anyMarkerIsStillAnimatingThisFrame = false;
     const animationDuration = G.currentMapOptions.updateIntervalMs * G.ANIMATION_DURATION_FACTOR;
@@ -257,14 +272,11 @@ function animateMarkers(timestamp) {
         G.setAnimationFrameId(requestAnimationFrame(animateMarkers));
     } else {
         G.setAnimationFrameId(null);
-        // console.log("animateMarkers: Loop stopped (ALL active animations for this cycle completed OR no markers were animating). G.animationFrameId set to null.");
     }
 }
 
 export function startAnimationLoop() {
-    // console.log("startAnimationLoop: CALLED. G.animationFrameId is:", G.animationFrameId);
     if (G.animationFrameId === null) {
-        // console.log("startAnimationLoop: G.animationFrameId is null, checking if animation is needed.");
         let needsAnimation = false;
         for (const vid in G.busMarkerObjects) {
             if (G.busMarkerObjects.hasOwnProperty(vid) && G.busMarkerObjects[vid].isAnimating) {
@@ -273,18 +285,11 @@ export function startAnimationLoop() {
             }
         }
         if (needsAnimation) {
-            // console.log("startAnimationLoop: Animation NEEDED, calling requestAnimationFrame(animateMarkers).");
             G.setAnimationFrameId(requestAnimationFrame(animateMarkers));
-        } else {
-            // console.log("startAnimationLoop: No animation needed currently.");
         }
-    } else {
-        // console.log("startAnimationLoop: G.animationFrameId is NOT null, loop presumed running.");
     }
 }
 
-
-// --- Utility Functions ---
 export function formatTimestamp(unixTimestamp) {
     if (unixTimestamp === null || typeof unixTimestamp === 'undefined') return 'No TS';
     try {
@@ -299,7 +304,6 @@ export function formatTimestamp(unixTimestamp) {
     }
 }
 
-// --- Start the process by loading Google Maps ---
 loadGoogleMapsScript().then(() => {
     console.log("Google Maps script loading initiated. Callback 'initMapGoogleCallback' will be invoked by Google.");
 }).catch(error => {
