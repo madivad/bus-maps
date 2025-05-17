@@ -48,9 +48,9 @@ async function loadGoogleMapsScript() {
 async function initMapGoogleCallback() {
     console.log(">>> initMapGoogleCallback: STARTED by Google Maps API!");
     try {
-        const initialCenter = { lat: -33.48, lng: 151.33 }; // Central Coast, NSW approx.
+        const initialCenter = { lat: -33.51, lng: 151.32 }; // Central Coast, NSW approx.
         G.setMap(new google.maps.Map(document.getElementById("map"), {
-            zoom: 11,
+            zoom: 14,
             center: initialCenter,
             mapId: "BUS_MAP_REALTIME" // Example Map ID
         }));

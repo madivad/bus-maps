@@ -38,12 +38,12 @@ export const DEFAULT_POLYLINE_ZINDEX = 1;
 
 // Styles for highlighted route
 export const HIGHLIGHTED_POLYLINE_OPACITY = 0.9;
-export const HIGHLIGHTED_POLYLINE_WEIGHT = 7;
+export const HIGHLIGHTED_POLYLINE_WEIGHT = 5;
 export const HIGHLIGHTED_POLYLINE_ZINDEX = 5;
 
 // Styles for de-emphasized (other) routes when one is highlighted
 export const DEEMPHASIZED_POLYLINE_OPACITY = 0.15;
-export const DEEMPHASIZED_POLYLINE_WEIGHT = 4;
+export const DEEMPHASIZED_POLYLINE_WEIGHT = 3;
 export const DEEMPHASIZED_POLYLINE_ZINDEX = DEFAULT_POLYLINE_ZINDEX;
 // DEEMPHASIZED_POLYLINE_ZINDEX can remain DEFAULT_POLYLINE_ZINDEX
 
