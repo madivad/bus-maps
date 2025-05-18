@@ -12,6 +12,38 @@ import { loadStateFromLocalStorage,
          filterAvailableRoutes } from './map_state_modals.js';
 import { updateMapData, fetchAndUpdateMarkers, populateSidebar, handleRouteInteraction, clearRouteHighlight } from './map_data_layer.js';
 
+// --- Sidebar Toggle Functions (Defined in map_init.js for now) ---
+export function applySidebarVisibilityState() { // Export if called from elsewhere, or keep local if only used by toggleSidebarVisibilityUI
+    if (!G.sidebarDiv || !G.sidebarToggleBtn) {
+        console.warn("applySidebarVisibilityState: Sidebar or toggle button not ready.");
+        return;
+    }
+
+    if (G.isSidebarVisible) {
+        G.sidebarDiv.classList.remove('sidebar-hidden');
+        document.body.classList.add('sidebar-is-visible'); // For toggle button positioning
+        G.sidebarToggleBtn.title = "Hide Sidebar";
+        if (G.selectedRealtimeRouteIds.size > 0) { // Only populate if routes are selected
+            populateSidebar(); // Ensure content is there when shown
+        } else {
+            if(G.sidebarRoutesListDiv) G.sidebarRoutesListDiv.textContent = 'No routes selected.';
+        }
+    } else {
+        G.sidebarDiv.classList.add('sidebar-hidden');
+        document.body.classList.remove('sidebar-is-visible');
+        G.sidebarToggleBtn.title = "Show Sidebar";
+    }
+    // Ensure map resizes if sidebar visibility changes (Google Maps specific)
+    if (G.map && google && google.maps && google.maps.event) {
+        google.maps.event.trigger(G.map, 'resize');
+    }
+}
+
+export function toggleSidebarVisibilityUI() { // Export if called from elsewhere
+    G.setIsSidebarVisible(!G.isSidebarVisible); // Toggle the state
+    applySidebarVisibilityState();
+    saveStateToLocalStorage(); // Save the new preference
+}
 
 // Function to dynamically load the Google Maps script
 async function loadGoogleMapsScript() {
@@ -77,6 +109,8 @@ async function initMapGoogleCallback() {
     initializeDOMElements();
     addEventListeners();
     await loadStateFromLocalStorage();
+
+    applySidebarVisibilityState();
 
     console.log(">>> initMapGoogleCallback: Initial G.selectedOperatorIds size:", G.selectedOperatorIds.size);
     console.log(">>> initMapGoogleCallback: Initial G.selectedRealtimeRouteIds size:", G.selectedRealtimeRouteIds.size);
@@ -146,6 +180,7 @@ function initializeDOMElements() {
     G.setSidebarRoutesListDiv(document.getElementById('sidebar-routes-list'));
     G.setRoutePreviewContainerDiv(document.getElementById('route-preview-container'));
     G.setAvailableRoutesCountSpan(document.getElementById('available-routes-count')); 
+    G.setSidebarToggleBtn(document.getElementById('sidebar-toggle-btn'));
 
 
     if (G.updateFrequencySelect) G.updateFrequencySelect.value = G.currentMapOptions.updateIntervalMs.toString();
@@ -166,6 +201,11 @@ function addEventListeners() {
         G.setIsPreviewingRouteId(null);
         if (G.routePreviewContainerDiv) G.routePreviewContainerDiv.innerHTML = 'Click an available route to preview its path.';
     });
+
+    if (G.sidebarToggleBtn) {
+        G.sidebarToggleBtn.addEventListener('click', toggleSidebarVisibilityUI);
+    }
+    
     if (G.closeOptionsModalBtn) G.closeOptionsModalBtn.addEventListener('click', () => { if(G.optionsModal) G.optionsModal.style.display = "none"; });
     if (G.saveOperatorsBtn) G.saveOperatorsBtn.addEventListener('click', handleSaveOperators);
     if (G.saveRoutesBtn) G.saveRoutesBtn.addEventListener('click', handleSaveRoutes);

@@ -56,7 +56,24 @@ export async function loadStateFromLocalStorage() {
     const storedVisibleRouteIds = localStorage.getItem('visibleRealtimeRouteIds');
     const storedOptions = localStorage.getItem('currentMapOptions');
     const storedAssignedColors = localStorage.getItem('assignedRouteColors');
-
+    const storedSidebarState = localStorage.getItem('isSidebarVisible');
+    if (storedSidebarState !== null) {
+        try {
+            G.setIsSidebarVisible(JSON.parse(storedSidebarState));
+        } catch (e) {
+            console.error("Error parsing storedSidebarState, using default.", e);
+            G.setIsSidebarVisible(window.innerWidth > 768); // Default based on screen width
+        }
+    } else {
+        // Default for first load (e.g., visible on desktop, hidden on mobile)
+        // Ensure window object is available (it should be in browser context)
+        if (typeof window !== 'undefined') {
+            G.setIsSidebarVisible(window.innerWidth > 768); 
+        } else {
+            G.setIsSidebarVisible(true); // Fallback if window is not available (e.g. testing env)
+        }
+        console.log("loadStateFromLocalStorage: No sidebar state found, defaulting to:", G.isSidebarVisible);
+    }
     let tempSelectedOperatorIds = new Set();
     if (storedOperatorIds) {
         try {
@@ -163,6 +180,8 @@ export function saveStateToLocalStorage() {
         localStorage.setItem('visibleRealtimeRouteIds', JSON.stringify(Array.from(G.visibleRealtimeRouteIds)));
         localStorage.setItem('currentMapOptions', JSON.stringify(G.currentMapOptions));
         localStorage.setItem('assignedRouteColors', JSON.stringify(G.assignedRouteColors));
+        localStorage.setItem('isSidebarVisible', JSON.stringify(G.isSidebarVisible));
+
         console.log("saveStateToLocalStorage: FINISHED - State saved to localStorage.");
     } catch (e) {
         console.error("saveStateToLocalStorage: ERROR saving to localStorage.", e);

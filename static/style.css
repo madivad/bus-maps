@@ -10,126 +10,138 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    font-family: sans-serif; /* Add a default font */
-    overflow: hidden; /* Prevent scrollbars on body due to absolute positioning */
+    font-family: sans-serif;
+    overflow: hidden; 
 }
-
-/* --- Menu Bar --- */
-#menu-bar {
-    position: fixed; /* Keep it at the top */
-    top: 0;
+#map {
+    position: absolute; 
+    top: 45px; 
+    bottom: 0;
     left: 0;
-    width: 100%;
-    height: 40px; /* Adjust as needed */
-    background-color: #f0f0f0;
-    border-bottom: 1px solid #ccc;
-    padding: 5px 10px;
-    box-sizing: border-box;
-    z-index: 1000; /* Above map and modals (initially) */
-    display: flex;
-    align-items: center;
+    right: 0;
 }
-
-#menu-bar button {
-    margin-right: 10px;
-    padding: 5px 10px;
-    cursor: pointer;
+#menu-bar {
+    position: fixed; top: 0; left: 0; width: 100%; height: 40px;
+    background-color: #f0f0f0; border-bottom: 1px solid #ccc;
+    padding: 5px 10px; box-sizing: border-box; z-index: 1000;
+    display: flex; align-items: center;
 }
-#menu-bar button:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
+#menu-bar button { margin-right: 10px; padding: 5px 10px; cursor: pointer; }
+#menu-bar button:disabled { cursor: not-allowed; opacity: 0.6; }
 #map-title {
-    margin: 0;
-    margin-left: auto;
-    margin-right: 20px;
-    font-size: 1.0em;
-    color: #333;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 50%;
+    margin: 0; margin-left: auto; margin-right: 20px; font-size: 1.0em;
+    color: #333; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; max-width: 50%;
 }
-
 
 /* --- Modal Styling --- */
 .modal {
-    display: none; 
-    position: fixed; 
-    z-index: 1001; 
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    /* overflow: auto; /* Let modal-content handle its own overflow */
-    background-color: rgba(0,0,0,0.5); 
-    padding-top: 3vh; /* Use viewport units for a bit more flexibility */
-    padding-bottom: 3vh;
-    box-sizing: border-box; /* Include padding in height calculation */
+    display: none; position: fixed; z-index: 1001; left: 0; top: 0;
+    width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); 
+    padding-top: 3vh; padding-bottom: 3vh; box-sizing: border-box;
 }
 
 .modal-content {
-    background-color: #fefefe;
-    margin: 0 auto; /* Center horizontally, vertical margin handled by .modal padding */
-    padding: 20px;
-    border: 1px solid #888;
-    width: 75%; /* Default width for modals like options/operators */
-    /* max-width: 500px;  */
-    border-radius: 8px;
-    position: relative;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    max-height: 94vh; 
-    display: flex; 
-    flex-direction: column; 
+    background-color: #fefefe; margin: 0 auto; padding: 20px;
+    border: 1px solid #888; width: 50%; max-width: 500px; 
+    border-radius: 8px; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    max-height: 94vh; display: flex; flex-direction: column; 
 }
 
 .close-button {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    line-height: 1; /* Ensure it doesn't take too much vertical space */
+    color: #aaa; float: right; font-size: 28px;
+    font-weight: bold; line-height: 1; 
 }
+.close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
+#small-timer { margin: 0; font-size: 0.9em; color: #777; margin-left: 10px; flex-shrink: 0; }
 
-.close-button:hover,
-.close-button:focus {
-    color: black;
-    text-decoration: none;
-    cursor: pointer;
-}
 
-#small-timer {
-    margin: 0;
-    font-size: 0.9em;
-    color: #777;
-    margin-left: 10px;
-    flex-shrink: 0;
-}
-
-/* --- Route Visibility Sidebar --- */
+/* --- Route Sidebar & Toggle --- */
 #route-sidebar {
     position: fixed;
-    top: 45px;
+    top: 45px; /* Below menu bar */
     right: 0;
     bottom: 0;
     width: 250px;
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.95); /* Slightly less transparent */
     border-left: 1px solid #ccc;
     padding: 10px;
     box-sizing: border-box;
-    z-index: 999;
+    z-index: 998; /* Below modals and toggle button */
     overflow-y: auto;
     box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+    transform: translateX(0); /* Default: visible */
+    transition: transform 0.3s ease-in-out;
+    display: flex; /* Use flex for internal layout of header and list */
+    flex-direction: column;
 }
 
-#route-sidebar h4 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    text-align: center;
+#route-sidebar.sidebar-hidden {
+    transform: translateX(100%); /* Slides it off-screen to the right */
+}
+
+#route-sidebar .sidebar-header { /* Optional header within sidebar */
+    flex-shrink: 0; /* Prevent header from shrinking */
     border-bottom: 1px solid #eee;
     padding-bottom: 5px;
+    margin-bottom: 10px;
 }
+#route-sidebar .sidebar-header h4 {
+    margin-top: 0;
+    margin-bottom: 0; /* Remove bottom margin from h4 if header handles spacing */
+    text-align: center;
+}
+
+#sidebar-routes-list {
+    flex-grow: 1; /* Allow list to take available space */
+    overflow-y: auto; /* Scroll list if it's long */
+}
+
+.sidebar-toggle {
+    position: fixed;
+    top: 50px; 
+    /* right calculation will be dynamic or based on sidebar state via another class */
+    right: 10px; /* Default if sidebar is hidden */
+    z-index: 999; /* Above sidebar, below modals */
+    background-color: rgba(220, 220, 220, 0.6); /* Fainter background */
+    border: 1px solid #bbb;
+    border-radius: 50%;
+    width: 32px;  /* Slightly larger */
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: right 0.3s ease-in-out, background-color 0.2s, transform 0.3s ease-in-out;
+}
+.sidebar-toggle:hover {
+    background-color: rgba(200, 200, 200, 0.8);
+}
+
+.sidebar-toggle .chevron-icon {
+    border: solid #333; /* Darker chevron */
+    border-width: 0 2px 2px 0;
+    display: inline-block;
+    padding: 4px; /* Make chevron slightly larger */
+    transition: transform 0.3s ease-in-out;
+    /* Default: Chevron points LEFT (to open a sidebar that slides from right) */
+    transform: rotate(135deg); 
+}
+
+/* State when sidebar is VISIBLE */
+body.sidebar-is-visible .sidebar-toggle {
+    right: 260px; /* (sidebar width 250px + button width/2 approx + some spacing) Adjust as needed */
+    /* Or place it over the sidebar: */
+    /* right: 225px; */ /* e.g. 250px - (32px/2) - small_margin */
+}
+
+body.sidebar-is-visible .sidebar-toggle .chevron-icon {
+    /* Chevron points RIGHT (to close a sidebar on the right) */
+    transform: rotate(-45deg); 
+}
+
 
 .sidebar-route-item {
     display: flex; /* Already flex */
@@ -172,114 +184,46 @@ html, body {
     flex-shrink: 0;
 }
 
-/* --- Route Selection Modal Specifics --- */
-#routes-modal .modal-content {
-    width: 75%; 
-    max-width: 900px; 
-    /* min-height: 400px; /* Rely on content and max-height */
-    /* I'm not sure abou t this one, I might put them back */
-    /* 
-    display: flex; 
-    flex-direction: column; 
-    */
-
+/* --- Route Selection Modal Specifics (styles as before, ensure they are complete) --- */
+#routes-modal .modal-content { 
+    width: 75%; max-width: 900px; 
+    max-height: 94vh; display: flex; flex-direction: column;
 }
-
-#routes-modal .modal-content > h2 { 
-    flex-shrink: 0; 
-    margin-bottom: 15px; 
-}
-
-/* This is the main flex row container for lists column and preview pane */
-/* Needs class name from index.html: routes-modal-body-flex-container */
+#routes-modal .modal-content > h2 { flex-shrink: 0; margin-bottom: 15px; }
 #routes-modal .modal-content > div.routes-modal-body-flex-container { 
-    flex-grow: 1; 
-    display: flex; 
-    min-height: 0; /* CRITICAL for allowing children to scroll within a flex item */
-    overflow: hidden; 
+    flex-grow: 1; display: flex; min-height: 0; overflow: hidden; 
 }
 
 #routes-modal .modal-content .routes-list-column {
-    display: flex;
-    flex-direction: column;
-    flex-basis: 50%; 
-    margin-right: 15px; 
-    min-width: 280px; 
-    min-height: 0; 
-    /* overflow: hidden; /* in case I need to switch. routes list overflow */
+    display: flex; flex-direction: column; flex-basis: 50%; 
+    margin-right: 15px; min-width: 280px; min-height: 0; overflow: hidden; 
 }
 
 #route-preview-container {
-    flex-basis: 45%; /* Adjust basis, was 40% */
-    border: 1px solid #ccc;
-    min-height: 250px; 
-    max-height: 100%; /* Occupy full height of its parent flex row */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    background-color: #f9f9f9;
-    overflow: hidden; /* Keep hidden to clip SVG if it ever miscalculates bounds */
-    padding: 5px;
-    box-sizing: border-box;
+    flex-basis: 50%; border: 1px solid #ccc; min-height: 250px; 
+    max-height: 100%; display: flex; align-items: center; justify-content: center;
+    text-align: center; background-color: #f9f9f9; overflow: hidden; 
+    padding: 5px; box-sizing: border-box;
 }
-#route-preview-container svg {
-    width: 100%;
-    height: 100%;
-    display: block;
+#route-preview-container svg { width: 100%; height: 100%; display: block; }
+.modal-list label { 
+    display: flex; align-items: center; margin-bottom: 6px; 
+    cursor: pointer; font-size: 0.85em; line-height: 1.3;
 }
-
-.modal-list label { /* General label styling for checkboxes inside lists */
-    display: flex; /* Use flex for better alignment of dot, checkbox, text */
-    align-items: center;
-    margin-bottom: 6px; /* Reduced margin */
-    cursor: pointer;
-    font-size: 0.85em; /* Slightly smaller font for route names */
-    line-height: 1.3;
+.modal-list input[type="checkbox"] { margin-right: 6px; flex-shrink: 0; }
+#available-routes-list .modal-route-item { padding: 4px 2px; border-radius: 3px; }
+#available-routes-list .modal-route-item:hover label { background-color: #f0f0f0; }
+#available-routes-list .modal-route-item.previewing label { background-color: #e0e8ff; font-weight: bold; }
+.modal-list.fixed-list { 
+    max-height: 150px; overflow-y: auto; border: 1px solid #eee;
+    padding: 10px; margin-bottom: 10px; flex-shrink: 0;
 }
-.modal-list input[type="checkbox"] {
-    margin-right: 6px; /* Space between checkbox and text */
-    flex-shrink: 0;
+.modal-list.scrollable-list { 
+    overflow-y: auto; border: 1px solid #eee; padding: 10px;
+    flex-grow: 1; min-height: 150px; 
 }
-
-/* Specific styling for items in the "Available Routes" list to indicate click for preview */
-#available-routes-list .modal-route-item {
-    padding: 4px 2px;
-    border-radius: 3px;
-    /* cursor: pointer; /* Label itself is already pointer */
-}
-#available-routes-list .modal-route-item:hover label { 
-    background-color: #f0f0f0; 
-}
-#available-routes-list .modal-route-item.previewing label { 
-    background-color: #e0e8ff; 
-    font-weight: bold;
-}
-
-.modal-list.fixed-list { /* For "Selected Routes" list */
-    max-height: 150px; /* Give it a bit more space */
-    overflow-y: auto;
-    border: 1px solid #eee;
-    padding: 10px;
-    margin-bottom: 10px;
-    flex-shrink: 0;
-}
-
-.modal-list.scrollable-list { /* For available routes list */
-    max-height: 60vh; /* Adjust height */
-    /* overflow-y: auto; */
-    border: 1px solid #eee;
-    padding: 10px;
-    flex-grow: 1; 
-    min-height: 150px; /* Increased min-height */
-}
-
-#selected-routes-list-container h4,
-#routes-modal h4 { /* Titles for sections within routes modal */
-    margin-top: 5px;
-    margin-bottom: 5px;
-    font-size: 0.95em;
-    flex-shrink: 0; 
+#selected-routes-list-container h4, #routes-modal h4 { 
+    margin-top: 5px; margin-bottom: 5px; font-size: 0.95em; flex-shrink: 0; 
 }
 #routes-modal input#route-search-input { 
     flex-shrink: 0; 
@@ -371,25 +315,27 @@ html, body {
 
 /* Very small screens (mobiles) */
 @media screen and (max-width: 480px) {
-    .modal-content {
-        width: 95%; 
-        padding: 10px;
-        max-height: 96vh;
+    .modal-content { width: 98%; padding: 10px; max-height: 96vh;}
+    #routes-modal .modal-content { width: 98%; padding: 10px;}
+    #routes-modal .modal-content .routes-list-column { max-height: 45vh; }
+    #route-preview-container { min-height: 180px; max-height: 35vh; }
+    #route-sidebar { width: 100%; transform: translateX(100%); /* Full width when hidden for mobile */ }
+    #route-sidebar:not(.sidebar-hidden) { transform: translateX(0); width: 80%; max-width: 250px; /* Visible state for mobile */ }
+
+        /* Adjust toggle button position for mobile when sidebar is hidden */
+    body:not(.sidebar-is-visible) .sidebar-toggle {
+        right: 5px; /* Closer to edge */
+        top: 48px; /* Just below menu */
     }
-     #routes-modal .modal-content {
-        width: 98%;
-        padding: 10px;
-    }
-    #routes-modal .modal-content .routes-list-column {
-        max-height: 45vh; 
-    }
-    #route-preview-container {
-        min-height: 180px;
-        max-height: 35vh; 
+    /* Adjust toggle button position for mobile when sidebar is visible */
+    body.sidebar-is-visible .sidebar-toggle {
+        /* Example: position over the sidebar if it's 80% width */
+        right: calc(20% + 5px); /* (100% - 80% visible width) + small offset */
+        top: 48px;
     }
 
     #route-sidebar { width: 20vw; } /* 160px; } */
     #map-title { font-size: 0.9em; max-width: 30%;}
-    .modal-list label { font-size: 0.7em; }
+    .modal-list label { font-size: 0.8em; }
     #routes-modal h4 { font-size: 0.9em; }
 }
