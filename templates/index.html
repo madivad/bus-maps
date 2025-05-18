@@ -18,11 +18,20 @@
 
     <div id="map"></div>
 
-    <div id="route-sidebar" style="display:none;">
+    
+    <div id="route-sidebar">
+        <div class="sidebar-header">
         <h4>Tracked Routes</h4>
+        </div>
         <div id="sidebar-routes-list">
         </div>
     </div>
+
+    <button id="sidebar-toggle-btn" class="sidebar-toggle" title="Toggle Sidebar">
+        <svg class="chevron-svg-icon" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+            <polyline points="3,2 7,5 3,8" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
 
     <div id="operators-modal" class="modal" style="display:none;">
         <div class="modal-content">

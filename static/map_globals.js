@@ -33,6 +33,8 @@ export let timerDisplayElement;
 export let sidebarDiv, sidebarRoutesListDiv;
 export let routePreviewContainerDiv; 
 export let availableRoutesCountSpan; 
+export let isSidebarVisible = true; // Default to visible, will be overridden by localStorage
+export let sidebarToggleBtn;
 
 // --- Polyline Style Constants ---
 export const DEFAULT_POLYLINE_OPACITY = 0.35;
@@ -95,8 +97,10 @@ export function setSaveOptionsBtn(el) { saveOptionsBtn = el; }
 export function setTimerDisplayElement(el) { timerDisplayElement = el; }
 export function setSidebarDiv(el) { sidebarDiv = el; }
 export function setSidebarRoutesListDiv(el) { sidebarRoutesListDiv = el; }
-export function setRoutePreviewContainerDiv(el) { routePreviewContainerDiv = el; } // NEW
-export function setAvailableRoutesCountSpan(el) { availableRoutesCountSpan = el; } // NEW
+export function setRoutePreviewContainerDiv(el) { routePreviewContainerDiv = el; }
+export function setAvailableRoutesCountSpan(el) { availableRoutesCountSpan = el; }
+export function setIsSidebarVisible(isVisible) { isSidebarVisible = isVisible; }
+export function setSidebarToggleBtn(el) { sidebarToggleBtn = el; }
 
 
 export function setCountdownValue(val) { countdownValue = val; }
