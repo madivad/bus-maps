@@ -334,7 +334,7 @@ html, body {
         max-height: 96vh; 
     }
     #routes-modal .modal-content {
-        width: 95%; 
+        width: 99%; 
         max-width: none; 
     }
 
@@ -346,12 +346,12 @@ html, body {
     }
     #routes-modal .modal-content .routes-list-column { 
         flex-basis: auto; 
-        width: 100%; 
+        width: 98%; 
         margin-right: 0; 
         margin-bottom: 15px; 
         min-height: 200px; 
         max-height: 50vh; 
-        overflow:hidden; 
+        /* overflow:hidden; */
     }
     .modal-list.scrollable-list { 
         max-height: none; 
@@ -372,7 +372,7 @@ html, body {
 /* Very small screens (mobiles) */
 @media screen and (max-width: 480px) {
     .modal-content {
-        width: 98%; 
+        width: 95%; 
         padding: 10px;
         max-height: 96vh;
     }
@@ -388,8 +388,8 @@ html, body {
         max-height: 35vh; 
     }
 
-    #route-sidebar { width: 160px; }
+    #route-sidebar { width: 20vw; } /* 160px; } */
     #map-title { font-size: 0.9em; max-width: 30%;}
-    .modal-list label { font-size: 0.8em; }
+    .modal-list label { font-size: 0.7em; }
     #routes-modal h4 { font-size: 0.9em; }
 }
