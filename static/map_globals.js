@@ -97,8 +97,8 @@ export function setSaveOptionsBtn(el) { saveOptionsBtn = el; }
 export function setTimerDisplayElement(el) { timerDisplayElement = el; }
 export function setSidebarDiv(el) { sidebarDiv = el; }
 export function setSidebarRoutesListDiv(el) { sidebarRoutesListDiv = el; }
-export function setRoutePreviewContainerDiv(el) { routePreviewContainerDiv = el; } // NEW
-export function setAvailableRoutesCountSpan(el) { availableRoutesCountSpan = el; } // NEW
+export function setRoutePreviewContainerDiv(el) { routePreviewContainerDiv = el; }
+export function setAvailableRoutesCountSpan(el) { availableRoutesCountSpan = el; }
 export function setIsSidebarVisible(isVisible) { isSidebarVisible = isVisible; }
 export function setSidebarToggleBtn(el) { sidebarToggleBtn = el; }
 

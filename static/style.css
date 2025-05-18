@@ -97,38 +97,95 @@ html, body {
     overflow-y: auto; /* Scroll list if it's long */
 }
 
+
+/* --- Sidebar Toggle Button Restyled --- */
 .sidebar-toggle {
-    position: fixed;
-    top: 50px; 
-    /* right calculation will be dynamic or based on sidebar state via another class */
+    position: fixed; 
+    top: 50px;
     right: 10px; /* Default if sidebar is hidden */
-    z-index: 999; /* Above sidebar, below modals */
-    background-color: rgba(220, 220, 220, 0.6); /* Fainter background */
-    border: 1px solid #bbb;
-    border-radius: 50%;
-    width: 32px;  /* Slightly larger */
-    height: 32px;
-    padding: 0;
+    background: rgb(255, 255, 255);
+    border: 0px;
+    margin: 0; 
+    padding: 0px;
+    text-transform: none;
+    appearance: none;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 2px;
+    height: 40px;
+    width: 40px;
+    box-shadow: rgba(0, 0, 0, 0.3) 0px 1px 4px -1px;
+    overflow: hidden;
+    z-index: 999; 
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    transition: right 0.3s ease-in-out, background-color 0.2s, transform 0.3s ease-in-out;
+    transition: background-color 0.2s, transform 0.3s ease-in-out, top 0.3s ease-in-out, right 0.3s ease-in-out;
 }
 .sidebar-toggle:hover {
-    background-color: rgba(200, 200, 200, 0.8);
+    background-color: rgb(245, 245, 245); /* Slight hover like Google's buttons */
 }
 
 .sidebar-toggle .chevron-icon {
-    border: solid #333; /* Darker chevron */
+    font-family: monospace; /* For simple characters to render somewhat consistently */
+    font-size: 20px;
+    line-height: 1;
+    color: #666;
+} 
+
+.sidebar-toggle .chevron-svg-icon {
+    width: 12px; /* Adjust size */
+    height: 12px;
+    stroke: #5f6368; /* Google's icon color */
+    transition: transform 0.3s ease-in-out;
+}
+/* When sidebar is HIDDEN (and button is fixed) */
+body:not(.sidebar-is-visible) .sidebar-toggle {
+    top: 105px; /* Your desired position */
+    right: 10px; 
+}
+/* When sidebar is VISIBLE (and button is fixed) */
+body.sidebar-is-visible .sidebar-toggle {
+    top: 105px; /* Keep same top if you like it there */
+    right: 265px; /* (sidebar width 250px + desired space e.g. 15px) */
+}
+body:not(.sidebar-is-visible) .sidebar-toggle .chevron-svg-icon {
+    transform: rotate(180deg); /* Pointing left to open (if sidebar is on right) */
+}
+body.sidebar-is-visible .sidebar-toggle .chevron-svg-icon {
+    transform: rotate(0deg); /* Pointing right to close */
+}
+
+/* --- CSS to handle fixed positioning fallback --- */
+/* These rules apply if JS cannot find the fullscreen button and leaves .sidebar-toggle as position:fixed */
+
+body:not(.sidebar-is-visible) .sidebar-toggle[style*="position: fixed"] {
+    right: 10px; 
+}
+body.sidebar-is-visible .sidebar-toggle[style*="position: fixed"] {
+    right: 260px; 
+}
+
+body:not(.sidebar-is-visible) .sidebar-toggle .chevron-icon::before {
+    content: "<"; /* Placeholder for 'show sidebar' icon */
+}
+
+body.sidebar-is-visible .sidebar-toggle .chevron-icon::before {
+    content: ">"; /* Placeholder for 'hide sidebar' icon */
+}
+
+
+
+
+    /*
+    border: solid #333; /* Darker chevron 
     border-width: 0 2px 2px 0;
     display: inline-block;
-    padding: 4px; /* Make chevron slightly larger */
+    padding: 4px; /* Make chevron slightly larger 
     transition: transform 0.3s ease-in-out;
-    /* Default: Chevron points LEFT (to open a sidebar that slides from right) */
+    /* Default: Chevron points LEFT (to open a sidebar that slides from right) 
     transform: rotate(135deg); 
-}
+} */
 
 /* State when sidebar is VISIBLE */
 body.sidebar-is-visible .sidebar-toggle {
@@ -141,7 +198,6 @@ body.sidebar-is-visible .sidebar-toggle .chevron-icon {
     /* Chevron points RIGHT (to close a sidebar on the right) */
     transform: rotate(-45deg); 
 }
-
 
 .sidebar-route-item {
     display: flex; /* Already flex */
@@ -322,10 +378,10 @@ body.sidebar-is-visible .sidebar-toggle .chevron-icon {
     #route-sidebar { width: 100%; transform: translateX(100%); /* Full width when hidden for mobile */ }
     #route-sidebar:not(.sidebar-hidden) { transform: translateX(0); width: 80%; max-width: 250px; /* Visible state for mobile */ }
 
-        /* Adjust toggle button position for mobile when sidebar is hidden */
+    /* Adjust toggle button position for mobile when sidebar is hidden */
     body:not(.sidebar-is-visible) .sidebar-toggle {
         right: 5px; /* Closer to edge */
-        top: 48px; /* Just below menu */
+        top: 105px; /* Just below menu */
     }
     /* Adjust toggle button position for mobile when sidebar is visible */
     body.sidebar-is-visible .sidebar-toggle {

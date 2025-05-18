@@ -3,6 +3,7 @@ console.log("map_init.js: PARSING.");
 
 import * as G from './map_globals.js'; // G for Globals
 import { loadStateFromLocalStorage, 
+         saveStateToLocalStorage,
          openOperatorsModal, 
          openRoutesModal, 
          openOptionsModal, 
@@ -12,16 +13,29 @@ import { loadStateFromLocalStorage,
          filterAvailableRoutes } from './map_state_modals.js';
 import { updateMapData, fetchAndUpdateMarkers, populateSidebar, handleRouteInteraction, clearRouteHighlight } from './map_data_layer.js';
 
-// --- Sidebar Toggle Functions (Defined in map_init.js for now) ---
-export function applySidebarVisibilityState() { // Export if called from elsewhere, or keep local if only used by toggleSidebarVisibilityUI
-    if (!G.sidebarDiv || !G.sidebarToggleBtn) {
-        console.warn("applySidebarVisibilityState: Sidebar or toggle button not ready.");
-        return;
-    }
+function positionSidebarToggleButton() {
+    if (!G.map || !G.sidebarToggleBtn) return false; // Return a status
 
+    const mapDiv = G.map.getDiv();
+    const fullscreenButton = mapDiv.querySelector('button.gm-fullscreen-control');
+
+    const fsButtonRect = fullscreenButton.getBoundingClientRect(); // Dimensions and position of the Google Maps fullscreen button RELATIVE TO THE VIEWPORT
+
+    G.sidebarToggleBtn.style.top = (fullscreenButton ? '105px' : '45px'); // Let CSS handle 'right'
+    G.sidebarToggleBtn.style.right = (G.isSidebarVisible ? '260px' : '10px');   // Let CSS handle 'top'
+    G.sidebarToggleBtn.style.position = 'absolute';
+    console.log("FS: " + fullscreenButton.top);
+}
+
+export function applySidebarVisibilityState() {
+    if (!G.sidebarDiv || !G.sidebarToggleBtn) return;
+
+    const wasPositionedAbsolutely = positionSidebarToggleButton(); // Try to position it
+
+    // The rest of the logic handles visibility classes and icon changes
     if (G.isSidebarVisible) {
         G.sidebarDiv.classList.remove('sidebar-hidden');
-        document.body.classList.add('sidebar-is-visible'); // For toggle button positioning
+        document.body.classList.add('sidebar-is-visible'); // This class now primarily controls fixed pos via CSS
         G.sidebarToggleBtn.title = "Hide Sidebar";
         if (G.selectedRealtimeRouteIds.size > 0) { // Only populate if routes are selected
             populateSidebar(); // Ensure content is there when shown
@@ -30,19 +44,23 @@ export function applySidebarVisibilityState() { // Export if called from elsewhe
         }
     } else {
         G.sidebarDiv.classList.add('sidebar-hidden');
-        document.body.classList.remove('sidebar-is-visible');
+        document.body.classList.remove('sidebar-is-visible'); // This class now primarily controls fixed pos via CSS
         G.sidebarToggleBtn.title = "Show Sidebar";
+        if (G.sidebarToggleBtn.querySelector('.chevron-icon')) {
+            G.sidebarToggleBtn.querySelector('.chevron-icon').innerHTML = '<'; // Or your SVG logic
+        }
     }
-    // Ensure map resizes if sidebar visibility changes (Google Maps specific)
+    
+    // Trigger map resize
     if (G.map && google && google.maps && google.maps.event) {
         google.maps.event.trigger(G.map, 'resize');
     }
 }
 
-export function toggleSidebarVisibilityUI() { // Export if called from elsewhere
-    G.setIsSidebarVisible(!G.isSidebarVisible); // Toggle the state
-    applySidebarVisibilityState();
-    saveStateToLocalStorage(); // Save the new preference
+export function toggleSidebarVisibilityUI() {
+    G.setIsSidebarVisible(!G.isSidebarVisible);
+    applySidebarVisibilityState(); // This will re-evaluate positioning
+    saveStateToLocalStorage();
 }
 
 // Function to dynamically load the Google Maps script
@@ -97,24 +115,32 @@ async function initMapGoogleCallback() {
         G.setMap(new google.maps.Map(document.getElementById("map"), {
             zoom: 14,
             center: initialCenter,
-            mapId: "BUS_MAP_REALTIME"
+            mapId: "BUS_MAP_REALTIME",
+            fullscreenControl: true, // Ensure fullscreen control is enabled
+            mapTypeControl: false,   // Example: disable map type
+            streetViewControl: false // Example: disable street view
+            // Add other map options as needed
         }));
         console.log(">>> initMapGoogleCallback: Google Maps object CREATED and stored in G.map.");
     } catch (mapError) {
         console.error(">>> initMapGoogleCallback: ERROR Creating Google Maps object:", mapError);
         document.getElementById('map').textContent = 'Failed to create Google Map object. See console for details.';
-        G.setMap(null);
+        G.setMap(null); // Ensure G.map is null on error
     }
 
     initializeDOMElements();
     addEventListeners();
+    
+    // Load state from localStorage (this will set G.isSidebarVisible, G.selectedOperatorIds etc.)
     await loadStateFromLocalStorage();
 
-    applySidebarVisibilityState();
+    // applySidebarVisibilityState();
 
     console.log(">>> initMapGoogleCallback: Initial G.selectedOperatorIds size:", G.selectedOperatorIds.size);
     console.log(">>> initMapGoogleCallback: Initial G.selectedRealtimeRouteIds size:", G.selectedRealtimeRouteIds.size);
     console.log(">>> initMapGoogleCallback: Initial G.visibleRealtimeRouteIds size:", G.visibleRealtimeRouteIds.size);
+    console.log(">>> initMapGoogleCallback: Initial G.isSidebarVisible state:", G.isSidebarVisible);
+
 
      if (G.btnRoutes) {
         G.btnRoutes.disabled = G.selectedOperatorIds.size === 0;
@@ -122,10 +148,20 @@ async function initMapGoogleCallback() {
         console.error(">>> initMapGoogleCallback: G.btnRoutes is null!");
      }
 
-     if (G.map) {
-        console.log(">>> initMapGoogleCallback: Map object exists. Calling updateMapData for initial load.");
-        await updateMapData();
+    if (G.map) { // Only proceed with map-dependent operations if map was created
+        console.log(">>> initMapGoogleCallback: Map object exists. Initializing map data and UI states.");
 
+        // Add a listener for when the map is idle (tiles loaded, controls likely rendered)
+        google.maps.event.addListenerOnce(G.map, 'idle', async () => {
+            console.log(">>> initMapGoogleCallback: Map is idle. Applying initial sidebar state and toggle position.");
+            // This is the best time to position relative to GMaps controls and apply initial visibility
+            applySidebarVisibilityState(); 
+            
+            console.log(">>> initMapGoogleCallback: Map idle. Calling updateMapData for initial data load.");
+            await updateMapData(); // This will populate sidebar, draw paths/markers based on loaded state
+        });
+
+        // General map click listener
         G.map.addListener('click', (e) => {
             if (G.currentlyOpenInfoWindow) {
                 G.currentlyOpenInfoWindow.close();
@@ -135,10 +171,13 @@ async function initMapGoogleCallback() {
                  clearRouteHighlight();
             }
         });
-         startAnimationLoop();
+
+        startAnimationLoop(); // Start animation loop if needed
      } else {
-         console.log(">>> initMapGoogleCallback: Map object NOT created. Skipping map data initialization.");
+         console.log(">>> initMapGoogleCallback: Map object NOT created. Skipping map data initialization and sidebar positioning.");
          if (G.mapTitleH3) G.mapTitleH3.textContent = 'Map failed to load';
+         // Even if map fails, try to apply sidebar visibility based on localStorage (it will use fixed CSS positioning)
+         applySidebarVisibilityState(); 
      }
 
     if (G.timerDisplayElement) {
@@ -205,7 +244,7 @@ function addEventListeners() {
     if (G.sidebarToggleBtn) {
         G.sidebarToggleBtn.addEventListener('click', toggleSidebarVisibilityUI);
     }
-    
+
     if (G.closeOptionsModalBtn) G.closeOptionsModalBtn.addEventListener('click', () => { if(G.optionsModal) G.optionsModal.style.display = "none"; });
     if (G.saveOperatorsBtn) G.saveOperatorsBtn.addEventListener('click', handleSaveOperators);
     if (G.saveRoutesBtn) G.saveRoutesBtn.addEventListener('click', handleSaveRoutes);
